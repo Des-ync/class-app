@@ -1,0 +1,21 @@
+{
+  "name": "class-app",
+  "version": "1.0.0",
+  "description": "School and work shuttle service app with monthly subscriptions",
+  "main": "src/server.js",
+  "scripts": {
+    "test": "node --test",
+    "start": "node src/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://localhost:26831/Des-ync/class-app"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}
