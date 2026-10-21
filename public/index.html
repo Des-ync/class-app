@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>School & Work Shuttle</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2rem; max-width: 980px; }
+      h1 { margin-bottom: 0.25rem; }
+      section { margin: 1.5rem 0; }
+      form { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+      form button { grid-column: 1 / -1; width: fit-content; }
+      table { border-collapse: collapse; width: 100%; margin-top: 0.75rem; }
+      th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+      code { background: #f6f6f6; padding: 0.1rem 0.3rem; border-radius: 4px; }
+      .muted { color: #666; }
+      .status { margin-top: 0.5rem; }
+    </style>
+  </head>
+  <body>
+    <h1>School & Work Shuttle Service</h1>
+    <p class="muted">Morning pickup and evening return with fixed monthly subscriptions.</p>
+
+    <section>
+      <h2>Register Rider</h2>
+      <form id="rider-form">
+        <input name="name" placeholder="Full name" required />
+        <select name="type" required>
+          <option value="student">Student</option>
+          <option value="worker">Worker</option>
+        </select>
+        <select name="pickupType" required>
+          <option value="stop">Designated bus stop</option>
+          <option value="home">Home pickup</option>
+        </select>
+        <input name="pickupLocation" placeholder="Home/stop location" required />
+        <input name="dayDestination" placeholder="School/Work destination" required />
+        <input name="morningPickupTime" type="time" required />
+        <input name="eveningPickupTime" type="time" required />
+        <input name="monthlyFee" type="number" min="1" step="0.01" placeholder="Monthly fee" required />
+        <button type="submit">Add rider</button>
+      </form>
+      <p id="form-status" class="status"></p>
+    </section>
+
+    <section>
+      <h2>Current Riders</h2>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Type</th><th>Pickup</th><th>Destination</th><th>Morning</th><th>Evening</th><th>Monthly Fee</th></tr>
+        </thead>
+        <tbody id="riders-body"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Morning Trips</h2>
+      <table>
+        <thead><tr><th>Rider</th><th>From</th><th>To</th><th>Time</th></tr></thead>
+        <tbody id="morning-body"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Evening Trips</h2>
+      <table>
+        <thead><tr><th>Rider</th><th>From</th><th>To</th><th>Time</th></tr></thead>
+        <tbody id="evening-body"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Subscriptions</h2>
+      <table>
+        <thead><tr><th>Rider</th><th>Monthly Fee</th><th>Paid Months</th><th>Actions</th></tr></thead>
+        <tbody id="subscriptions-body"></tbody>
+      </table>
+    </section>
+
+    <script src="app.js"></script>
+  </body>
+</html>
