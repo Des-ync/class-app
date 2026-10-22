@@ -1,3 +1,4 @@
+import { hydrateDomain } from "../store/hydration";
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
 import { useShuttleStore } from "../store/useShuttleStore";
@@ -213,4 +214,54 @@ test("a previous trip screenshot cannot board a restarted run", () => {
   current().endTrip();
   current().startTrip();
   assert.throws(() => current().scan(token), /Invalid/);
+});
+
+test("hydration migrates missing fields and repairs duplicate seats without dropping valid accounts", () => {
+  current().reset();
+  const legacy = {
+    ...current(),
+    boardingRecords: undefined,
+    riders: current().riders.map((r) => ({ ...r, seat: 2 })),
+  };
+  const restored = hydrateDomain(legacy, current());
+  assert.equal(restored.riders.length, 14);
+  assert.deepEqual(restored.boardingRecords, []);
+  const east = restored.riders.filter((r) => r.routeId === "east");
+  assert.equal(new Set(east.map((r) => r.seat)).size, east.length);
+  assert.ok(restored.riders.every((r) => r.subscription));
+});
+test("hydration rejects corrupt validity, unknown routes and unsafe progress", () => {
+  current().reset();
+  const riders = current().riders.map((r, i) =>
+    i === 0
+      ? { ...r, subscription: { ...r.subscription!, end: "invalid" } }
+      : i === 1
+        ? { ...r, routeId: "missing" }
+        : r,
+  );
+  const restored = hydrateDomain(
+    {
+      ...current(),
+      riders,
+      trips: {
+        morning: {
+          status: "En Route",
+          progress: Infinity,
+          notifiedStops: ["missing"],
+        },
+        evening: { status: "Completed", progress: -100 },
+      },
+      riderId: "unknown",
+    },
+    current(),
+  );
+  assert.equal(restored.riders[0].subscription, null);
+  assert.equal(
+    restored.riders.some((r) => r.id === "r2"),
+    false,
+  );
+  assert.equal(restored.loggedIn, false);
+  assert.equal(restored.trips.morning.progress, 0);
+  assert.equal(restored.trips.evening.progress, 1);
+  assert.deepEqual(restored.trips.morning.notifiedStops, []);
 });

@@ -30,6 +30,12 @@ import {
   SeatHold,
 } from "../services/subscriptions";
 import { api, validatePayment, verifyPass } from "../services/api";
+import { createResilientStorage } from "../services/storage";
+import { hydrateDomain } from "./hydration";
+const localStorage = createResilientStorage(AsyncStorage, (message) => {
+  if (useShuttleStore.getState().storageError !== message)
+    useShuttleStore.setState({ storageError: message });
+});
 interface CheckoutOperation extends SeatHold {
   requestId: string;
   planId: string;
@@ -52,6 +58,7 @@ interface State {
   run: Run;
   trips: Record<Run, Trip>;
   serviceDay: string;
+  retryPersistence: () => Promise<boolean>;
   setHydrated: () => void;
   loginDemo: (role: Role, type?: RiderType) => void;
   register: (name: string, email: string, type: RiderType) => Promise<void>;
@@ -95,6 +102,7 @@ export const useShuttleStore = create<State>()(
       run: "morning",
       trips: seedTrips(),
       serviceDay: dayKey(),
+      retryPersistence: () => localStorage.flush(),
       setHydrated: () => set({ hydrated: true }),
       loginDemo: (role, type = "Student") =>
         set({
@@ -398,6 +406,8 @@ export const useShuttleStore = create<State>()(
           ].slice(0, 100),
         })),
       tick: () => {
+        if (!get().hydrated) return;
+        void localStorage.flush();
         const s = get();
         if (s.serviceDay !== dayKey()) {
           set({
@@ -526,7 +536,8 @@ export const useShuttleStore = create<State>()(
     }),
     {
       name: "shuttlepass-v1",
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => localStorage.storage),
+      merge: (stored, current) => hydrateDomain(stored, current),
       partialize: ({ hydrated, storageError, ...rest }) => rest,
       onRehydrateStorage: () => (state, error) => {
         if (state) state.setHydrated();
@@ -534,7 +545,7 @@ export const useShuttleStore = create<State>()(
           useShuttleStore.setState({
             hydrated: true,
             storageError:
-              "Local storage could not be loaded. This session is using fresh demo data.",
+              "Local storage could not be loaded. Current data is retained in memory; saved data has not been overwritten.",
           });
       },
     },

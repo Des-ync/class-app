@@ -4,6 +4,7 @@ const path = require("node:path");
 for (const [input, output] of [
   ["domain.test.ts", "domain"],
   ["store.spec.ts", "store"],
+  ["storage.test.ts", "storage"],
 ]) {
   esbuild.buildSync({
     entryPoints: [`tests/${input}`],
@@ -20,7 +21,12 @@ for (const [input, output] of [
 }
 const result = spawnSync(
   process.execPath,
-  ["--test", ".test-build/domain.cjs", ".test-build/store.cjs"],
+  [
+    "--test",
+    ".test-build/domain.cjs",
+    ".test-build/store.cjs",
+    ".test-build/storage.cjs",
+  ],
   { stdio: "inherit" },
 );
 process.exit(result.status ?? 1);
