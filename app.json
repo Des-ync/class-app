@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "ShuttlePass",
+    "slug": "shuttlepass",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.shuttlepass.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#0F172A"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "app.shuttlepass.mobile"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sharing"
+    ],
+    "scheme": "shuttlepass"
+  }
+}
