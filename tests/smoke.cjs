@@ -54,8 +54,8 @@ const assert = require("node:assert/strict");
   await page
     .getByRole("button", { name: "Show demo scan token", exact: true })
     .click();
-  const token = await page.getByText(/^SP1\|/).innerText();
-  assert.ok(token.startsWith("SP1|r1|school|"));
+  const token = await page.getByText(/^SP2\|/).innerText();
+  assert.ok(token.startsWith("SP2|r1|school|"));
   await page.screenshot({
     path: "artifacts/boarding-pass.png",
     fullPage: true,

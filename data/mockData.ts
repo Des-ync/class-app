@@ -1,5 +1,11 @@
 import { Plan, Rider, Route, Run, Trip } from "../types";
-export const dayKey = () => new Date().toLocaleDateString("en-CA");
+export const dayKey = (now = Date.now()) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Accra",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
 export const addDays = (date: Date, days: number) =>
   new Date(date.getTime() + days * 86400000).toISOString();
 export const plans: Plan[] = [

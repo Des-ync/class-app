@@ -187,3 +187,30 @@ test("registration does not allocate or duplicate paid seats and route changes e
     /fully reserved/,
   );
 });
+
+test("boarding consumption survives rehydration and prevents a replay after status rollback", async () => {
+  current().reset();
+  current().loginDemo("commuter", "Worker");
+  const rider = current().riders[1],
+    token = passToken(rider);
+  current().scan(token);
+  assert.equal(current().boardingRecords.length, 1);
+  await useShuttleStore.persist.rehydrate();
+  useShuttleStore.setState({
+    riders: current().riders.map((r) =>
+      r.id === rider.id
+        ? { ...r, statuses: { ...r.statuses, morning: "Waiting" } }
+        : r,
+    ),
+  });
+  assert.throws(() => current().scan(token), /already been used/);
+  assert.equal(current().boardingRecords.length, 1);
+});
+test("a previous trip screenshot cannot board a restarted run", () => {
+  current().reset();
+  const rider = current().riders[1],
+    token = passToken(rider);
+  current().endTrip();
+  current().startTrip();
+  assert.throws(() => current().scan(token), /Invalid/);
+});

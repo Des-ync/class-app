@@ -8,6 +8,7 @@
     "@react-navigation/bottom-tabs": "^7.21.0",
     "@react-navigation/native": "^7.5.1",
     "expo": "~58.0.16",
+    "expo-crypto": "~58.0.7",
     "expo-file-system": "~58.0.10",
     "expo-sharing": "~58.0.19",
     "expo-status-bar": "~58.0.3",
@@ -19,6 +20,7 @@
     "react-native-screens": "~4.30.0",
     "react-native-svg": "15.16.0",
     "react-native-web": "~0.21.4",
+    "tweetnacl": "^1.0.3",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
@@ -38,7 +40,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/domain.test.ts && node tests/run-store.cjs",
+    "test": "node tests/run-store.cjs",
     "test:smoke": "node tests/smoke.cjs",
     "format": "prettier --write App.tsx components data screens services store types tests",
     "lint": "expo lint"

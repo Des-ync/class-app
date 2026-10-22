@@ -77,3 +77,58 @@ test("local account registration validates and normalizes identity", async () =>
   });
   await assert.rejects(api.login("bad", "Ama"), /email/);
 });
+
+test("pass validity fails closed for malformed, future and exact-expiry subscriptions", () => {
+  const now = Date.now();
+  for (const sub of [
+    { start: "invalid", end: new Date(now + 60000).toISOString() },
+    { start: new Date(now - 1000).toISOString(), end: "invalid" },
+    {
+      start: new Date(now + 1000).toISOString(),
+      end: new Date(now + 60000).toISOString(),
+    },
+    {
+      start: new Date(now - 1000).toISOString(),
+      end: new Date(now).toISOString(),
+    },
+  ]) {
+    const rider = seedRiders()[0];
+    rider.subscription = { ...rider.subscription!, ...sub };
+    assert.throws(
+      () => verifyPass(passToken(rider, now), [rider], now),
+      /subscription/,
+    );
+  }
+});
+test("signed passes reject forged signatures, future tokens, wrong trips and legacy checksums", () => {
+  const rider = seedRiders()[0],
+    now = Date.now();
+  const token = passToken(rider, now);
+  const parts = token.split("|");
+  parts[9] = "0".repeat(128);
+  assert.throws(() => verifyPass(parts.join("|"), [rider], now), /Invalid/);
+  assert.throws(
+    () => verifyPass(passToken(rider, now + 30000), [rider], now),
+    /Invalid/,
+  );
+  assert.throws(
+    () => verifyPass("SP1|r1|school|1|0|deadbeef", [rider], now),
+    /Invalid/,
+  );
+  assert.throws(() => verifyPass("x".repeat(2049), [rider], now), /Invalid/);
+  const context = {
+    run: "evening" as const,
+    serviceDay: token.split("|")[5],
+    tripId: "run-unique",
+  };
+  const evening = passToken(rider, now, context);
+  assert.equal(verifyPass(evening, [rider], now, context).id, rider.id);
+  assert.throws(
+    () =>
+      verifyPass(evening, [rider], now, { ...context, tripId: "other-trip" }),
+    /Invalid/,
+  );
+  assert.throws(() => verifyPass(evening, [rider], now), /Invalid/);
+  rider.subscription!.end = addDays(new Date(), 90);
+  assert.throws(() => verifyPass(token, [rider], now), /Invalid/);
+});

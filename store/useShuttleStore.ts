@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Activity,
+  BoardingRecord,
   Booking,
   PaymentInput,
   Receipt,
@@ -37,6 +38,7 @@ interface CheckoutOperation extends SeatHold {
 }
 const checkouts = new Map<string, CheckoutOperation>();
 let generation = 0;
+import { boardingKey, ticketContext } from "../services/ticketing";
 interface State {
   hydrated: boolean;
   storageError: string | null;
@@ -45,6 +47,7 @@ interface State {
   riderId: string;
   riders: Rider[];
   receipts: Receipt[];
+  boardingRecords: BoardingRecord[];
   activity: Activity[];
   run: Run;
   trips: Record<Run, Trip>;
@@ -85,6 +88,7 @@ export const useShuttleStore = create<State>()(
       riderId: "r1",
       riders: seedRiders(),
       receipts: [],
+      boardingRecords: [],
       activity: [
         event("Welcome to ShuttlePass", "Your daily commute, taken care of."),
       ],
@@ -337,6 +341,10 @@ export const useShuttleStore = create<State>()(
           trips: {
             ...s.trips,
             [s.run]: {
+              id:
+                s.trips[s.run].status === "Completed"
+                  ? operationId("trip")
+                  : s.trips[s.run].id,
               status: "En Route",
               progress:
                 s.trips[s.run].status === "Completed"
@@ -424,10 +432,7 @@ export const useShuttleStore = create<State>()(
             throw new Error(
               "Doorstep pickup requires an active Doorstep VIP plan.",
             );
-          if (
-            !rider.subscription ||
-            new Date(rider.subscription.end) < new Date()
-          )
+          if (!isSubscriptionActive(rider.subscription))
             throw new Error("An active subscription is required to board.");
           if (
             s.trips[s.run].status === "Completed" ||
@@ -437,12 +442,32 @@ export const useShuttleStore = create<State>()(
           if (rider.statuses[s.run] === "Absent")
             throw new Error("This rider has marked themselves absent today.");
           if (rider.statuses[s.run] === "Boarded") return;
+          const key = boardingKey(
+            rider,
+            ticketContext(s.run, s.trips[s.run], s.serviceDay),
+          );
+          if (s.boardingRecords.some((record) => record.key === key))
+            throw new Error("This pass has already been used on this trip.");
           if (
             s.riders.filter((r) => r.statuses[s.run] === "Boarded").length >= 18
           )
             throw new Error("This shuttle has reached its 18-seat capacity.");
         }
         set((s) => ({
+          boardingRecords:
+            status === "Boarded"
+              ? [
+                  ...s.boardingRecords,
+                  {
+                    key: boardingKey(
+                      rider,
+                      ticketContext(s.run, s.trips[s.run], s.serviceDay),
+                    ),
+                    riderId: id,
+                    boardedAt: new Date().toISOString(),
+                  },
+                ].slice(-1000)
+              : s.boardingRecords,
           riders: s.riders.map((r) =>
             r.id === id
               ? { ...r, statuses: { ...r.statuses, [s.run]: status } }
@@ -475,7 +500,13 @@ export const useShuttleStore = create<State>()(
           ].slice(0, 100),
         })),
       scan: (token) => {
-        const rider = verifyPass(token, get().riders);
+        const s = get();
+        const rider = verifyPass(
+          token,
+          s.riders,
+          Date.now(),
+          ticketContext(s.run, s.trips[s.run], s.serviceDay),
+        );
         get().passengerStatus(rider.id, "Boarded");
       },
       reset: () => {
@@ -484,6 +515,7 @@ export const useShuttleStore = create<State>()(
         set({
           riders: seedRiders(),
           receipts: [],
+          boardingRecords: [],
           activity: [event("Demo reset", "All demo data has been restored.")],
           trips: seedTrips(),
           run: "morning",

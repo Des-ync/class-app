@@ -76,40 +76,4 @@ export const api = {
     };
   },
 };
-function demoHash(payload: string): string {
-  let hash = 2166136261;
-  for (const c of `shuttlepass-local-demo:${payload}`) {
-    hash ^= c.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0");
-}
-export function passToken(rider: Rider, now = Date.now()) {
-  const payload = `SP1|${rider.id}|${rider.routeId}|${rider.seat}|${Math.floor(now / 30000)}`;
-  return `${payload}|${demoHash(payload)}`;
-}
-export function verifyPass(
-  token: string,
-  riders: Rider[],
-  now = Date.now(),
-): Rider {
-  const parts = token.trim().split("|");
-  const [version, id, route, seat, bucket, hash] = parts;
-  if (parts.length !== 6 || hash !== demoHash(parts.slice(0, 5).join("|")))
-    throw new Error("Invalid or expired pass. Refresh the rider’s QR code.");
-  const rider = riders.find((r) => r.id === id);
-  if (
-    version !== "SP1" ||
-    !rider ||
-    rider.routeId !== route ||
-    String(rider.seat) !== seat ||
-    Math.abs(Math.floor(now / 30000) - Number(bucket)) > 1 ||
-    !Number.isFinite(Number(bucket))
-  )
-    throw new Error(
-      "Invalid or expired pass. Ask the rider to refresh their pass.",
-    );
-  if (!rider.subscription || new Date(rider.subscription.end).getTime() < now)
-    throw new Error("This subscription has expired.");
-  return rider;
-}
+export { passToken, verifyPass } from "./ticketing";

@@ -18,6 +18,8 @@ import {
 import { RouteMap } from "../components/RouteMap";
 import { driver, eveningTimes, plans, routes } from "../data/mockData";
 import { useShuttleStore } from "../store/useShuttleStore";
+import { isSubscriptionActive } from "../services/subscriptions";
+import { ticketContext } from "../services/ticketing";
 import { passToken } from "../services/api";
 export const useRider = () => {
   const store = useShuttleStore();
@@ -38,7 +40,7 @@ export function Home({ navigation }: { navigation: any }) {
   const [evening, setEvening] = useState(rider.evening);
   const route = routes.find((r) => r.id === rider.routeId)!;
   const sub = rider.subscription;
-  const active = !!sub && new Date(sub.end) > new Date();
+  const active = isSubscriptionActive(sub);
   const days = active
     ? Math.ceil((new Date(sub!.end).getTime() - Date.now()) / 86400000)
     : 0;
@@ -441,14 +443,18 @@ export function Tracker() {
   );
 }
 export function Pass({ navigation }: { navigation: any }) {
-  const { rider } = useRider();
+  const { store, rider } = useRider();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  const active =
-    rider.subscription && new Date(rider.subscription.end).getTime() > now;
+  const active = isSubscriptionActive(rider.subscription, now);
+  const context = ticketContext(
+    store.run,
+    store.trips[store.run],
+    store.serviceDay,
+  );
   const route = routes.find((r) => r.id === rider.routeId)!;
   const plan = plans.find((p) => p.id === rider.subscription?.planId);
   const mismatch = rider.pickup === "home" && plan?.pickup !== "home";
@@ -487,7 +493,7 @@ export function Pass({ navigation }: { navigation: any }) {
               }}
             >
               <QRCode
-                value={passToken(rider, now)}
+                value={passToken(rider, now, context)}
                 size={210}
                 color={C.navy}
                 backgroundColor="white"
@@ -496,7 +502,7 @@ export function Pass({ navigation }: { navigation: any }) {
             <Text
               style={{ fontSize: 11, color: C.darkGreen, fontWeight: "700" }}
             >
-              SECURITY TOKEN REFRESHES IN {30 - (Math.floor(now / 1000) % 30)}s
+              SIGNED TOKEN REFRESHES IN {30 - (Math.floor(now / 1000) % 30)}s
             </Text>
             <View style={[s.row, { width: "100%" }]}>
               <View>
@@ -539,7 +545,7 @@ export function Pass({ navigation }: { navigation: any }) {
                 selectable
                 style={{ fontFamily: "monospace", fontSize: 12 }}
               >
-                {passToken(rider, now)}
+                {passToken(rider, now, context)}
               </Text>
               <Body>
                 Copy this token into the driver’s QR validator. Demo tokens

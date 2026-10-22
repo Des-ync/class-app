@@ -17,6 +17,7 @@ import {
 } from "../components/ui";
 import { driver, routes } from "../data/mockData";
 import { useShuttleStore } from "../store/useShuttleStore";
+import { ticketContext } from "../services/ticketing";
 import { passToken } from "../services/api";
 import { RouteMap } from "../components/RouteMap";
 export function Driver() {
@@ -301,7 +302,19 @@ export function Driver() {
               key={r.id}
               title={`Scan ${r.name}’s pass`}
               secondary
-              onPress={() => setToken(passToken(r))}
+              onPress={() =>
+                setToken(
+                  passToken(
+                    r,
+                    Date.now(),
+                    ticketContext(
+                      store.run,
+                      store.trips[store.run],
+                      store.serviceDay,
+                    ),
+                  ),
+                )
+              }
             />
           ))}
         <Body>

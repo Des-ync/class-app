@@ -62,9 +62,15 @@ export interface Receipt {
   end: string;
 }
 export interface Trip {
+  id?: string;
   status: TripStatus;
   progress: number;
   notifiedStops: string[];
+}
+export interface BoardingRecord {
+  key: string;
+  riderId: string;
+  boardedAt: string;
 }
 export interface Activity {
   id: string;
