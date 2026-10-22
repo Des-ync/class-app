@@ -44,7 +44,7 @@ EXPO_OFFLINE=1 npx expo export --platform ios --platform android
 EXPO_OFFLINE=1 npx expo export --platform web --output-dir dist-web
 ```
 
-The browser smoke workflow in `tests/smoke.cjs` expects the exported web app served on port 8082 and system Chromium at `/usr/bin/chromium`. Screenshots are saved under `artifacts/`.
+Run `npm run test:smoke` for the browser workflow. It builds a fresh web fixture, serves it on an ephemeral local port, and closes the server/browser automatically. It uses system Chromium at `/usr/bin/chromium`, a Playwright-installed browser, or `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. Screenshots are saved under `artifacts/`. The test disconnects the browser network while displaying a cached pass and boarding, then reconnects and verifies reload persistence. Web requires its initial assets to load; native app assets are bundled locally.
 
 ## Deployment boundary
 

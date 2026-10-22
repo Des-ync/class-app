@@ -91,3 +91,48 @@ test("unreadable or corrupt saved data is never overwritten by hydration default
   await resilient.flush();
   assert.equal(writes, 1);
 });
+
+test("an idle flush cannot strand a write started in the same event-loop turn", async () => {
+  let disk = "";
+  const resilient = createResilientStorage(
+    {
+      getItem: async () => disk,
+      setItem: async (_key, value) => {
+        disk = value;
+      },
+      removeItem: async () => {},
+    },
+    () => {},
+  );
+  const idle = resilient.flush();
+  const write = resilient.storage.setItem("state", '{"boarded":true}');
+  await Promise.all([idle, write]);
+  assert.equal(disk, '{"boarded":true}');
+  assert.equal(resilient.hasPending(), false);
+});
+test("snapshots queued while clearing a storage warning are drained before flush succeeds", async () => {
+  let disk = "",
+    offline = true,
+    recovered = false;
+  const resilient = createResilientStorage(
+    {
+      getItem: async () => disk,
+      setItem: async (_key, value) => {
+        if (offline) throw new Error("offline");
+        disk = value;
+      },
+      removeItem: async () => {},
+    },
+    (message) => {
+      if (message === null && !recovered) {
+        recovered = true;
+        void resilient.storage.setItem("state", '{"warningCleared":true}');
+      }
+    },
+  );
+  await resilient.storage.setItem("state", '{"boarded":true}');
+  offline = false;
+  assert.equal(await resilient.flush(), true);
+  assert.equal(disk, '{"warningCleared":true}');
+  assert.equal(resilient.hasPending(), false);
+});

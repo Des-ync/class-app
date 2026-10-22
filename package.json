@@ -41,7 +41,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "node tests/run-store.cjs",
-    "test:smoke": "node tests/smoke.cjs",
+    "test:smoke": "expo export --platform web --output-dir .test-web && node tests/smoke.cjs",
     "format": "prettier --write App.tsx components data screens services store types tests",
     "lint": "expo lint"
   },

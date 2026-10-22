@@ -12,3 +12,5 @@ coverage/
 .test-build/
 
 dist-native/
+
+.test-web/

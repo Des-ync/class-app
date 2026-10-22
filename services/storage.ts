@@ -13,21 +13,25 @@ export function createResilientStorage(
     "Recent changes are saved in memory only. Local storage is unavailable; retrying automatically.";
   async function drain(): Promise<boolean> {
     if (readBlocked) return false;
-    while (pending.size) {
-      const [key, value] = pending.entries().next().value!;
-      try {
-        await base.setItem(key, value);
-      } catch {
-        report(warning);
-        return false;
+    for (;;) {
+      while (pending.size) {
+        const [key, value] = pending.entries().next().value!;
+        try {
+          await base.setItem(key, value);
+        } catch {
+          report(warning);
+          return false;
+        }
+        if (pending.get(key) === value) pending.delete(key);
       }
-      if (pending.get(key) === value) pending.delete(key);
+      report(null);
+      // Clearing the warning can itself persist a newer store snapshot.
+      if (!pending.size) return true;
     }
-    report(null);
-    return true;
   }
   function flush(): Promise<boolean> {
     if (running) return running;
+    if (!pending.size) return Promise.resolve(!readBlocked);
     running = drain().finally(() => {
       running = null;
     });

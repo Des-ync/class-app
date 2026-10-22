@@ -1,3 +1,4 @@
+import testStorage, { storageControls } from "./storage";
 import { dayKey, seedRouteTrips } from "../data/mockData";
 import { hydrateDomain } from "../store/hydration";
 import { test } from "node:test";
@@ -362,4 +363,31 @@ test("manual boarding synchronizes a stale service day before consuming the pass
   assert.equal(current().serviceDay, dayKey());
   assert.ok(current().boardingRecords[0].key.includes(dayKey()));
   assert.equal(current().riders[1].statuses.morning, "Boarded");
+});
+
+test("boarding remains optimistic during storage failure and persists both status and replay ledger on recovery", async () => {
+  current().reset();
+  await current().retryPersistence();
+  storageControls.failWrites = true;
+  try {
+    current().scan(passToken(current().riders[1]));
+    assert.equal(current().riders[1].statuses.morning, "Boarded");
+    assert.equal(await current().retryPersistence(), false);
+    assert.match(current().storageError!, /memory only/);
+  } finally {
+    storageControls.failWrites = false;
+  }
+  assert.equal(await current().retryPersistence(), true);
+  assert.equal(current().storageError, null);
+  const saved = JSON.parse(
+    (await testStorage.getItem("shuttlepass-v1"))!,
+  ).state;
+  assert.equal(
+    saved.riders.find((r: { id: string }) => r.id === "r2").statuses.morning,
+    "Boarded",
+  );
+  assert.equal(saved.boardingRecords.length, 1);
+  await useShuttleStore.persist.rehydrate();
+  assert.equal(current().riders[1].statuses.morning, "Boarded");
+  assert.equal(current().boardingRecords.length, 1);
 });
