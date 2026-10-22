@@ -30,6 +30,8 @@ interface Domain {
   activity: Activity[];
   boardingRecords: BoardingRecord[];
   trips: Record<Run, Trip>;
+  routeTrips: Record<string, Record<Run, Trip>>;
+  driverRouteId: string;
   riderId: string;
   role: Role;
   loggedIn: boolean;
@@ -166,30 +168,58 @@ export function hydrateDomain<T extends Domain>(
     receiptIds.add(r.id);
     if (text(r.requestId, 200)) requests.add(r.requestId);
   }
-  const trips = { ...current.trips };
-  for (const run of ["morning", "evening"] as const) {
-    const t = object(object(raw.trips)[run]);
-    if (
-      !["Scheduled", "En Route", "Arriving", "Completed"].includes(
-        String(t.status),
+  function readTrips(
+    value: unknown,
+    fallback: Record<Run, Trip>,
+  ): Record<Run, Trip> {
+    const result = { ...fallback };
+    for (const run of ["morning", "evening"] as const) {
+      const t = object(object(value)[run]);
+      if (
+        !["Scheduled", "En Route", "Arriving", "Completed"].includes(
+          String(t.status),
+        )
       )
-    )
-      continue;
-    const progress =
-      typeof t.progress === "number" && Number.isFinite(t.progress)
-        ? Math.max(0, Math.min(1, t.progress))
-        : 0;
-    trips[run] = {
-      status: t.status as Trip["status"],
-      progress: t.status === "Completed" ? 1 : progress,
-      notifiedStops: Array.isArray(t.notifiedStops)
-        ? t.notifiedStops.filter((id): id is string =>
-            routes.some((r) => r.stops.some((s) => s.id === id)),
-          )
-        : [],
-      ...(text(t.id, 200) ? { id: t.id } : {}),
-    };
+        continue;
+      result[run] = {
+        status: t.status as Trip["status"],
+        progress:
+          t.status === "Completed"
+            ? 1
+            : typeof t.progress === "number" && Number.isFinite(t.progress)
+              ? Math.max(0, Math.min(1, t.progress))
+              : 0,
+        notifiedStops: Array.isArray(t.notifiedStops)
+          ? t.notifiedStops.filter((id): id is string =>
+              routes.some((r) => r.stops.some((p) => p.id === id)),
+            )
+          : [],
+        lastUpdatedAt:
+          typeof t.lastUpdatedAt === "number" &&
+          Number.isFinite(t.lastUpdatedAt)
+            ? Math.min(Date.now(), t.lastUpdatedAt)
+            : Date.now(),
+        ...(text(t.id, 200) ? { id: t.id } : {}),
+        ...(text(t.arrivalStopId, 100)
+          ? { arrivalStopId: t.arrivalStopId }
+          : {}),
+      };
+    }
+    return result;
   }
+  const legacy = readTrips(raw.trips, current.trips);
+  const routeTrips = Object.fromEntries(
+    routes.map((route) => [
+      route.id,
+      readTrips(
+        object(raw.routeTrips)[route.id],
+        Object.keys(object(raw.routeTrips)).length
+          ? current.routeTrips[route.id]
+          : legacy,
+      ),
+    ]),
+  );
+  const trips = routeTrips.east;
   const activity: Activity[] = (Array.isArray(raw.activity) ? raw.activity : [])
     .filter((a): a is Activity => {
       const r = object(a);
@@ -220,6 +250,10 @@ export function hydrateDomain<T extends Domain>(
     riders,
     receipts,
     trips,
+    routeTrips,
+    driverRouteId: routes.some((r) => r.id === raw.driverRouteId)
+      ? String(raw.driverRouteId)
+      : "east",
     activity,
     boardingRecords,
     riderId,

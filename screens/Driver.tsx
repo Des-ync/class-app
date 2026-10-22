@@ -22,14 +22,14 @@ import { passToken } from "../services/api";
 import { RouteMap } from "../components/RouteMap";
 export function Driver() {
   const store = useShuttleStore();
-  const [routeId, setRouteId] = useState("east");
+  const routeId = store.driverRouteId;
   const [scanner, setScanner] = useState(false);
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [end, setEnd] = useState(false);
   const route = routes.find((r) => r.id === routeId)!;
-  const trip = store.trips[store.run];
+  const trip = store.routeTrips[routeId][store.run];
   const riders = store.riders.filter((r) => r.routeId === routeId);
   const boarded = riders.filter(
     (r) => r.statuses[store.run] === "Boarded",
@@ -100,7 +100,7 @@ export function Driver() {
             icon="play"
             onPress={() =>
               attempt(
-                store.startTrip,
+                () => store.startTrip(routeId),
                 "Trip started. Riders can track this run.",
               )
             }
@@ -118,7 +118,9 @@ export function Driver() {
       <Chips
         options={routes.map((r) => r.code)}
         value={route.code}
-        onChange={(code) => setRouteId(routes.find((r) => r.code === code)!.id)}
+        onChange={(code) =>
+          store.setDriverRoute(routes.find((r) => r.code === code)!.id)
+        }
       />
       <RouteMap
         route={route}
@@ -181,7 +183,7 @@ export function Driver() {
               }
               onPress={() =>
                 attempt(
-                  () => store.notify(stop.id),
+                  () => store.notify(stop.id, routeId),
                   `${stop.name}: riders notified.`,
                 )
               }
@@ -285,7 +287,7 @@ export function Driver() {
               const id = token.split("|")[1];
               if (!riders.some((r) => r.id === id))
                 throw new Error("This passenger is assigned to another route.");
-              store.scan(token);
+              store.scan(token, routeId);
               setNotice("Pass validated. Passenger marked boarded.");
               setScanner(false);
               setError("");
@@ -309,7 +311,7 @@ export function Driver() {
                     Date.now(),
                     ticketContext(
                       store.run,
-                      store.trips[store.run],
+                      store.routeTrips[routeId][store.run],
                       store.serviceDay,
                     ),
                   ),
@@ -334,7 +336,7 @@ export function Driver() {
         <Button
           title="Complete trip"
           onPress={() => {
-            store.endTrip();
+            store.endTrip(routeId);
             setEnd(false);
             setNotice("Run complete. Commuter trip history has been updated.");
           }}

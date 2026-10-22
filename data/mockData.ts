@@ -232,7 +232,22 @@ export function seedRiders(): Rider[] {
     statuses: { morning: "Waiting", evening: "Waiting" },
   }));
 }
-export const seedTrips = (): Record<Run, Trip> => ({
-  morning: { status: "En Route", progress: 0.18, notifiedStops: [] },
-  evening: { status: "Scheduled", progress: 0, notifiedStops: [] },
+export const seedTrips = (now = Date.now()): Record<Run, Trip> => ({
+  morning: {
+    status: "En Route",
+    progress: 0.18,
+    notifiedStops: [],
+    lastUpdatedAt: now,
+  },
+  evening: {
+    status: "Scheduled",
+    progress: 0,
+    notifiedStops: [],
+    lastUpdatedAt: now,
+  },
 });
+
+export const seedRouteTrips = (
+  now = Date.now(),
+): Record<string, Record<Run, Trip>> =>
+  Object.fromEntries(routes.map((route) => [route.id, seedTrips(now)]));

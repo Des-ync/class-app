@@ -15,6 +15,7 @@ import {
   Badge,
 } from "../components/ui";
 import { useShuttleStore } from "../store/useShuttleStore";
+import { isSubscriptionActive } from "../services/subscriptions";
 import { driver, plans, routes } from "../data/mockData";
 import { Role } from "../types";
 export function Profile() {
@@ -103,7 +104,9 @@ export function Profile() {
                 </Text>
                 <Body>{a.detail}</Body>
                 <Text style={{ color: "#94A3B8", fontSize: 10 }}>
-                  {new Date(a.date).toLocaleString()}
+                  {new Date(a.date).toLocaleString(undefined, {
+                    timeZone: "Africa/Accra",
+                  })}
                 </Text>
               </View>
             </View>
@@ -158,8 +161,8 @@ export function Profile() {
 }
 export function Admin() {
   const store = useShuttleStore();
-  const active = store.riders.filter(
-    (r) => r.subscription && new Date(r.subscription.end) > new Date(),
+  const active = store.riders.filter((r) =>
+    isSubscriptionActive(r.subscription),
   );
   const revenue = store.receipts.reduce((sum, r) => sum + r.amount, 0);
   return (
@@ -189,29 +192,41 @@ export function Admin() {
         </Card>
       </View>
       <Title>Service runs</Title>
-      {(["morning", "evening"] as const).map((run) => (
-        <Card key={run}>
-          <View style={s.row}>
-            <Title>
-              {run === "morning" ? "Morning inbound" : "Evening outbound"}
-            </Title>
-            <Badge text={store.trips[run].status} green />
-          </View>
-          <Body>
-            {Math.round(store.trips[run].progress * 100)}% route progress ·{" "}
-            {store.riders.filter((r) => r.statuses[run] === "Boarded").length}{" "}
-            boarded
-          </Body>
-          <Button
-            title="Open driver controls"
-            secondary
-            onPress={() => {
-              store.setRun(run);
-              store.switchRole("driver");
-            }}
-          />
-        </Card>
-      ))}
+      {routes.flatMap((route) =>
+        (["morning", "evening"] as const).map((run) => (
+          <Card key={`${route.id}-${run}`}>
+            <Label>
+              {route.code} · {route.name}
+            </Label>
+            <View style={s.row}>
+              <Title>
+                {run === "morning" ? "Morning inbound" : "Evening outbound"}
+              </Title>
+              <Badge text={store.routeTrips[route.id][run].status} green />
+            </View>
+            <Body>
+              {Math.round(store.routeTrips[route.id][run].progress * 100)}%
+              route progress ·{" "}
+              {
+                store.riders.filter(
+                  (r) =>
+                    r.routeId === route.id && r.statuses[run] === "Boarded",
+                ).length
+              }{" "}
+              boarded
+            </Body>
+            <Button
+              title="Open driver controls"
+              secondary
+              onPress={() => {
+                store.setRun(run);
+                store.setDriverRoute(route.id);
+                store.switchRole("driver");
+              }}
+            />
+          </Card>
+        )),
+      )}
       <Title>Routes & demand</Title>
       {routes.map((route) => (
         <Card key={route.id}>

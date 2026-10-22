@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import Svg, { Circle, Path, Rect, Text as SvgText } from "react-native-svg";
+import { routePosition } from "../services/tracking";
 import { Route } from "../types";
 import { C, Icon } from "./ui";
 export function RouteMap({
@@ -28,15 +29,7 @@ export function RouteMap({
       useNativeDriver: false,
     }).start();
   }, [progress, v]);
-  const segment = Math.min(
-    points.length - 2,
-    Math.floor(p * (points.length - 1)),
-  );
-  const local = p * (points.length - 1) - segment;
-  const a = points[segment],
-    b = points[segment + 1];
-  const x = a.x + (b.x - a.x) * local,
-    y = a.y + (b.y - a.y) * local;
+  const { x, y } = routePosition(route, p, reverse ? "evening" : "morning");
   return (
     <View
       style={{

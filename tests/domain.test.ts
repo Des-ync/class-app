@@ -1,7 +1,14 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { api, passToken, validatePayment, verifyPass } from "../services/api";
-import { seedRiders, addDays } from "../data/mockData";
+import {
+  advanceTrip,
+  routePosition,
+  stopProgress,
+  stopTiming,
+  TRIP_DURATION_MS,
+} from "../services/tracking";
+import { dayKey, seedRiders, addDays } from "../data/mockData";
 const card = {
   planId: "worker",
   method: "Visa / Mastercard",
@@ -131,4 +138,62 @@ test("signed passes reject forged signatures, future tokens, wrong trips and leg
   assert.throws(() => verifyPass(evening, [rider], now), /Invalid/);
   rider.subscription!.end = addDays(new Date(), 90);
   assert.throws(() => verifyPass(token, [rider], now), /Invalid/);
+});
+
+test("route geometry, marker position, and ETA use the same distance fractions in both directions", () => {
+  const route = {
+    id: "geometry",
+    name: "Test",
+    code: "G",
+    destination: "End",
+    color: "#000",
+    stops: [
+      { id: "a", name: "A", landmark: "A", x: 0, y: 0 },
+      { id: "b", name: "B", landmark: "B", x: 3, y: 0 },
+      { id: "c", name: "C", landmark: "C", x: 3, y: 4 },
+    ],
+  };
+  assert.equal(stopProgress(route, "morning", "b"), 3 / 7);
+  assert.equal(stopProgress(route, "evening", "b"), 4 / 7);
+  const position = routePosition(route, 0.5, "morning");
+  assert.equal(position.x, 3);
+  assert.ok(Math.abs(position.y - 0.5) < 1e-12);
+  assert.deepEqual(routePosition(route, NaN, "morning"), { x: 0, y: 0 });
+  assert.deepEqual(routePosition({ ...route, stops: [] }, 1, "evening"), {
+    x: 180,
+    y: 135,
+  });
+  const trip = {
+    status: "En Route" as const,
+    progress: 0.2,
+    notifiedStops: [],
+  };
+  assert.equal(
+    stopTiming(route, "morning", "b", trip).minutes,
+    Math.ceil((3 / 7 - 0.2) * 25),
+  );
+  assert.equal(stopTiming(route, "morning", "a", trip).state, "passed");
+  assert.equal(
+    stopTiming(route, "evening", "c", { ...trip, progress: 0 }).state,
+    "at-stop",
+  );
+});
+test("elapsed-time tracking handles delayed ticks, background resumption and backwards clocks", () => {
+  const now = Date.parse("2026-10-22T08:00:00Z"),
+    trip = {
+      status: "En Route" as const,
+      progress: 0.2,
+      lastUpdatedAt: now,
+      notifiedStops: [],
+    };
+  assert.ok(
+    Math.abs(advanceTrip(trip, now + TRIP_DURATION_MS / 10).progress - 0.3) <
+      1e-12,
+  );
+  assert.equal(advanceTrip(trip, now - 60000).progress, 0.2);
+  assert.equal(advanceTrip(trip, now + TRIP_DURATION_MS).status, "Completed");
+  const scheduled = { ...trip, status: "Scheduled" as const };
+  assert.equal(advanceTrip(scheduled, now + TRIP_DURATION_MS), scheduled);
+  assert.equal(dayKey(Date.parse("2026-10-22T23:59:59Z")), "2026-10-22");
+  assert.equal(dayKey(Date.parse("2026-10-23T00:00:00Z")), "2026-10-23");
 });

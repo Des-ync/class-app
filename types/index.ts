@@ -63,6 +63,8 @@ export interface Receipt {
 }
 export interface Trip {
   id?: string;
+  lastUpdatedAt?: number;
+  arrivalStopId?: string;
   status: TripStatus;
   progress: number;
   notifiedStops: string[];

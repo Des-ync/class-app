@@ -20,6 +20,7 @@ import {
   routes,
   seedRiders,
   seedTrips,
+  seedRouteTrips,
   morningTimes,
   eveningTimes,
 } from "../data/mockData";
@@ -31,6 +32,7 @@ import {
 } from "../services/subscriptions";
 import { api, validatePayment, verifyPass } from "../services/api";
 import { createResilientStorage } from "../services/storage";
+import { advanceTrip, stopProgress } from "../services/tracking";
 import { hydrateDomain } from "./hydration";
 const localStorage = createResilientStorage(AsyncStorage, (message) => {
   if (useShuttleStore.getState().storageError !== message)
@@ -57,7 +59,10 @@ interface State {
   activity: Activity[];
   run: Run;
   trips: Record<Run, Trip>;
+  routeTrips: Record<string, Record<Run, Trip>>;
   serviceDay: string;
+  driverRouteId: string;
+  setDriverRoute: (id: string) => void;
   retryPersistence: () => Promise<boolean>;
   setHydrated: () => void;
   loginDemo: (role: Role, type?: RiderType) => void;
@@ -70,12 +75,12 @@ interface State {
   toggleRenew: () => void;
   checkout: (input: PaymentInput) => Promise<Receipt>;
   setRun: (run: Run) => void;
-  startTrip: () => void;
-  endTrip: () => void;
-  tick: () => void;
+  startTrip: (routeId?: string) => void;
+  endTrip: (routeId?: string) => void;
+  tick: (now?: number) => void;
   passengerStatus: (id: string, status: PassengerStatus) => void;
-  notify: (stopId: string) => void;
-  scan: (token: string) => void;
+  notify: (stopId: string, routeId?: string) => void;
+  scan: (token: string, routeId?: string) => void;
   reset: () => void;
 }
 const event = (title: string, detail: string, riderId?: string): Activity => ({
@@ -101,7 +106,9 @@ export const useShuttleStore = create<State>()(
       ],
       run: "morning",
       trips: seedTrips(),
+      routeTrips: seedRouteTrips(),
       serviceDay: dayKey(),
+      driverRouteId: "east",
       retryPersistence: () => localStorage.flush(),
       setHydrated: () => set({ hydrated: true }),
       loginDemo: (role, type = "Student") =>
@@ -179,7 +186,12 @@ export const useShuttleStore = create<State>()(
           ].slice(0, 100),
         }));
       },
-      setEvening: (time) =>
+      setEvening: (time) => {
+        if (!eveningTimes.includes(time))
+          throw new Error("Choose a valid evening return window.");
+        const rider = get().riders.find((r) => r.id === get().riderId)!;
+        if (["Boarded", "Completed"].includes(rider.statuses.evening))
+          throw new Error("This evening journey has already started.");
         set((s) => ({
           riders: s.riders.map((r) =>
             r.id === s.riderId ? { ...r, evening: time } : r,
@@ -192,12 +204,27 @@ export const useShuttleStore = create<State>()(
             ),
             ...s.activity,
           ].slice(0, 100),
-        })),
+        }));
+      },
       markAbsent: () =>
         set((s) => ({
           riders: s.riders.map((r) =>
             r.id === s.riderId
-              ? { ...r, statuses: { morning: "Absent", evening: "Absent" } }
+              ? {
+                  ...r,
+                  statuses: {
+                    morning: ["Boarded", "Completed"].includes(
+                      r.statuses.morning,
+                    )
+                      ? r.statuses.morning
+                      : "Absent",
+                    evening: ["Boarded", "Completed"].includes(
+                      r.statuses.evening,
+                    )
+                      ? r.statuses.evening
+                      : "Absent",
+                  },
+                }
               : r,
           ),
           activity: [
@@ -344,75 +371,107 @@ export const useShuttleStore = create<State>()(
         return promise;
       },
       setRun: (run) => set({ run }),
-      startTrip: () =>
-        set((s) => ({
-          trips: {
-            ...s.trips,
-            [s.run]: {
-              id:
-                s.trips[s.run].status === "Completed"
-                  ? operationId("trip")
-                  : s.trips[s.run].id,
-              status: "En Route",
-              progress:
-                s.trips[s.run].status === "Completed"
-                  ? 0
-                  : s.trips[s.run].progress,
-              notifiedStops: [],
-            },
+      setDriverRoute: (id) => {
+        if (!routes.some((r) => r.id === id)) throw new Error("Unknown route.");
+        set({ driverRouteId: id });
+      },
+      startTrip: (routeId = "east") => {
+        const s = get(),
+          trips = s.routeTrips[routeId];
+        if (!trips) throw new Error("Unknown route.");
+        const trip = trips[s.run];
+        if (trip.status === "En Route" || trip.status === "Arriving") return;
+        const next = {
+          ...trips,
+          [s.run]: {
+            id: operationId("trip"),
+            status: "En Route" as const,
+            progress: 0,
+            notifiedStops: [],
+            lastUpdatedAt: Date.now(),
           },
-          riders:
-            s.trips[s.run].status === "Completed"
-              ? s.riders.map((r) => ({
+        };
+        const routeTrips = { ...s.routeTrips, [routeId]: next };
+        set({
+          routeTrips,
+          trips: routeTrips.east,
+          riders: s.riders.map((r) =>
+            r.routeId === routeId
+              ? {
                   ...r,
                   statuses: {
                     ...r.statuses,
-                    [s.run]: "Waiting" as PassengerStatus,
+                    [s.run]:
+                      r.statuses[s.run] === "Absent"
+                        ? ("Absent" as const)
+                        : ("Waiting" as const),
                   },
-                }))
-              : s.riders,
+                }
+              : r,
+          ),
           activity: [
-            event(
-              "Trip started",
-              `${s.run === "morning" ? "Morning inbound" : "Evening outbound"} run is on the road.`,
-            ),
+            event("Trip started", `${routeId} · ${s.run} run is on the road.`),
             ...s.activity,
           ].slice(0, 100),
-        })),
-      endTrip: () =>
-        set((s) => ({
-          trips: {
-            ...s.trips,
-            [s.run]: { ...s.trips[s.run], status: "Completed", progress: 1 },
-          },
-          riders: s.riders.map((r) => ({
-            ...r,
-            statuses: {
-              ...r.statuses,
-              [s.run]:
-                r.statuses[s.run] === "Boarded"
-                  ? "Completed"
-                  : r.statuses[s.run] === "Waiting"
-                    ? "Skipped"
-                    : r.statuses[s.run],
+        });
+      },
+      endTrip: (routeId = "east") => {
+        const s = get(),
+          trip = s.routeTrips[routeId]?.[s.run];
+        if (!trip) throw new Error("Unknown route.");
+        if (trip.status === "Completed") return;
+        if (trip.status === "Scheduled")
+          throw new Error("Start the trip before completing it.");
+        const routeTrips = {
+          ...s.routeTrips,
+          [routeId]: {
+            ...s.routeTrips[routeId],
+            [s.run]: {
+              ...trip,
+              status: "Completed" as const,
+              progress: 1,
+              lastUpdatedAt: Date.now(),
             },
-          })),
+          },
+        };
+        set({
+          routeTrips,
+          trips: routeTrips.east,
+          riders: s.riders.map((r) =>
+            r.routeId === routeId
+              ? {
+                  ...r,
+                  statuses: {
+                    ...r.statuses,
+                    [s.run]:
+                      r.statuses[s.run] === "Boarded"
+                        ? "Completed"
+                        : r.statuses[s.run] === "Waiting"
+                          ? "Skipped"
+                          : r.statuses[s.run],
+                  },
+                }
+              : r,
+          ),
           activity: [
             event(
               "Trip completed",
-              `${s.run} run has reached its destination.`,
+              `${routeId} · ${s.run} run reached its destination.`,
             ),
             ...s.activity,
           ].slice(0, 100),
-        })),
-      tick: () => {
-        if (!get().hydrated) return;
-        void localStorage.flush();
+        });
+      },
+      tick: (now = Date.now()) => {
         const s = get();
-        if (s.serviceDay !== dayKey()) {
+        if (!s.hydrated || !Number.isFinite(now)) return;
+        void localStorage.flush();
+        if (s.serviceDay !== dayKey(now)) {
+          const routeTrips = seedRouteTrips(now);
           set({
-            serviceDay: dayKey(),
-            trips: seedTrips(),
+            serviceDay: dayKey(now),
+            routeTrips,
+            trips: routeTrips.east,
             riders: s.riders.map((r) => ({
               ...r,
               statuses: { morning: "Waiting", evening: "Waiting" },
@@ -420,33 +479,99 @@ export const useShuttleStore = create<State>()(
           });
           return;
         }
-        const trip = s.trips[s.run];
-        if (trip.status !== "En Route" && trip.status !== "Arriving") return;
-        if (trip.progress >= 1) {
-          get().endTrip();
-          return;
-        }
-        set({
-          trips: {
-            ...s.trips,
-            [s.run]: { ...trip, progress: Math.min(1, trip.progress + 0.003) },
-          },
-        });
+        let riders = s.riders,
+          activity = s.activity,
+          changed = false;
+        const routeTrips = { ...s.routeTrips };
+        for (const route of routes)
+          for (const run of ["morning", "evening"] as const) {
+            const trip = routeTrips[route.id][run];
+            let next = advanceTrip(trip, now);
+            if (next === trip) continue;
+            if (
+              next.arrivalStopId &&
+              next.progress >
+                stopProgress(route, run, next.arrivalStopId) + 0.01
+            )
+              next = {
+                ...next,
+                arrivalStopId: undefined,
+                status: next.status === "Completed" ? "Completed" : "En Route",
+              };
+            routeTrips[route.id] = { ...routeTrips[route.id], [run]: next };
+            changed = true;
+            if (next.status === "Completed" && trip.status !== "Completed") {
+              riders = riders.map((r) =>
+                r.routeId === route.id
+                  ? {
+                      ...r,
+                      statuses: {
+                        ...r.statuses,
+                        [run]:
+                          r.statuses[run] === "Boarded"
+                            ? "Completed"
+                            : r.statuses[run] === "Waiting"
+                              ? "Skipped"
+                              : r.statuses[run],
+                      },
+                    }
+                  : r,
+              );
+              activity = [
+                event(
+                  "Trip completed",
+                  `${route.id} · ${run} run reached its destination.`,
+                ),
+                ...activity,
+              ].slice(0, 100);
+            }
+          }
+        if (changed)
+          set({ routeTrips, trips: routeTrips.east, riders, activity });
       },
       passengerStatus: (id, status) => {
+        if (!get().hydrated)
+          throw new Error("Wait for saved data to finish loading.");
+        get().tick();
         const s = get();
         const rider = s.riders.find((r) => r.id === id);
         if (!rider) throw new Error("Passenger was not found.");
+        if (status === rider.statuses[s.run]) return;
+        if (
+          rider.statuses[s.run] === "Completed" ||
+          rider.statuses[s.run] === "Boarded"
+        )
+          throw new Error(
+            "This passenger has already boarded or completed the trip.",
+          );
+        if (status === "Completed")
+          throw new Error("Complete the trip to finish boarded journeys.");
         if (status === "Boarded") {
           if (rider.pickup === "home" && rider.subscription?.planId !== "vip")
             throw new Error(
               "Doorstep pickup requires an active Doorstep VIP plan.",
             );
+          if (
+            !Number.isInteger(rider.seat) ||
+            rider.seat < 1 ||
+            rider.seat > 18
+          )
+            throw new Error("A reserved seat is required to board.");
+          if (
+            s.riders.some(
+              (r) =>
+                r.id !== id &&
+                r.routeId === rider.routeId &&
+                r.seat === rider.seat &&
+                r.statuses[s.run] === "Boarded",
+            )
+          )
+            throw new Error("This seat is already occupied.");
           if (!isSubscriptionActive(rider.subscription))
             throw new Error("An active subscription is required to board.");
           if (
-            s.trips[s.run].status === "Completed" ||
-            s.trips[s.run].status === "Scheduled"
+            s.routeTrips[rider.routeId][s.run].status === "Completed" ||
+            s.routeTrips[rider.routeId][s.run].status === "Scheduled"
           )
             throw new Error("Start the trip before boarding.");
           if (rider.statuses[s.run] === "Absent")
@@ -454,12 +579,19 @@ export const useShuttleStore = create<State>()(
           if (rider.statuses[s.run] === "Boarded") return;
           const key = boardingKey(
             rider,
-            ticketContext(s.run, s.trips[s.run], s.serviceDay),
+            ticketContext(
+              s.run,
+              s.routeTrips[rider.routeId][s.run],
+              s.serviceDay,
+            ),
           );
           if (s.boardingRecords.some((record) => record.key === key))
             throw new Error("This pass has already been used on this trip.");
           if (
-            s.riders.filter((r) => r.statuses[s.run] === "Boarded").length >= 18
+            s.riders.filter(
+              (r) =>
+                r.routeId === rider.routeId && r.statuses[s.run] === "Boarded",
+            ).length >= 18
           )
             throw new Error("This shuttle has reached its 18-seat capacity.");
         }
@@ -471,7 +603,11 @@ export const useShuttleStore = create<State>()(
                   {
                     key: boardingKey(
                       rider,
-                      ticketContext(s.run, s.trips[s.run], s.serviceDay),
+                      ticketContext(
+                        s.run,
+                        s.routeTrips[rider.routeId][s.run],
+                        s.serviceDay,
+                      ),
                     ),
                     riderId: id,
                     boardedAt: new Date().toISOString(),
@@ -489,33 +625,56 @@ export const useShuttleStore = create<State>()(
           ].slice(0, 100),
         }));
       },
-      notify: (stopId) =>
-        set((s) => ({
-          trips: {
-            ...s.trips,
+      notify: (stopId, routeId) => {
+        const s = get(),
+          route = routes.find(
+            (r) =>
+              r.id ===
+              (routeId ||
+                routes.find((r) => r.stops.some((p) => p.id === stopId))?.id),
+          );
+        if (!route || !route.stops.some((p) => p.id === stopId))
+          throw new Error("Choose a stop on this route.");
+        const trip = s.routeTrips[route.id][s.run];
+        if (trip.status === "Scheduled" || trip.status === "Completed")
+          throw new Error("Start the trip before notifying riders.");
+        if (trip.progress > stopProgress(route, s.run, stopId) + 0.01)
+          throw new Error("This stop has already been passed.");
+        if (trip.notifiedStops.includes(stopId)) return;
+        const routeTrips = {
+          ...s.routeTrips,
+          [route.id]: {
+            ...s.routeTrips[route.id],
             [s.run]: {
-              ...s.trips[s.run],
-              status: "Arriving",
-              notifiedStops: [
-                ...new Set([...s.trips[s.run].notifiedStops, stopId]),
-              ],
+              ...trip,
+              status: "Arriving" as const,
+              arrivalStopId: stopId,
+              notifiedStops: [...trip.notifiedStops, stopId],
             },
           },
+        };
+        set({
+          routeTrips,
+          trips: routeTrips.east,
           activity: [
             event(
               "Shuttle arriving",
-              "Your shuttle will arrive in approximately 2 minutes.",
+              `${route.name}: approaching ${route.stops.find((p) => p.id === stopId)!.name}.`,
             ),
             ...s.activity,
           ].slice(0, 100),
-        })),
-      scan: (token) => {
-        const s = get();
+        });
+      },
+      scan: (token, routeId) => {
+        const s = get(),
+          assigned = token.split("|")[2];
+        if (!s.routeTrips[assigned] || (routeId && assigned !== routeId))
+          throw new Error("This passenger is assigned to another route.");
         const rider = verifyPass(
           token,
           s.riders,
           Date.now(),
-          ticketContext(s.run, s.trips[s.run], s.serviceDay),
+          ticketContext(s.run, s.routeTrips[assigned][s.run], s.serviceDay),
         );
         get().passengerStatus(rider.id, "Boarded");
       },
@@ -528,9 +687,11 @@ export const useShuttleStore = create<State>()(
           boardingRecords: [],
           activity: [event("Demo reset", "All demo data has been restored.")],
           trips: seedTrips(),
+          routeTrips: seedRouteTrips(),
           run: "morning",
           riderId: "r1",
           serviceDay: dayKey(),
+          driverRouteId: "east",
         });
       },
     }),

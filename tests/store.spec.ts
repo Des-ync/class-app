@@ -1,3 +1,4 @@
+import { dayKey, seedRouteTrips } from "../data/mockData";
 import { hydrateDomain } from "../store/hydration";
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
@@ -243,6 +244,7 @@ test("hydration rejects corrupt validity, unknown routes and unsafe progress", (
     {
       ...current(),
       riders,
+      routeTrips: undefined,
       trips: {
         morning: {
           status: "En Route",
@@ -264,4 +266,100 @@ test("hydration rejects corrupt validity, unknown routes and unsafe progress", (
   assert.equal(restored.trips.morning.progress, 0);
   assert.equal(restored.trips.evening.progress, 1);
   assert.deepEqual(restored.trips.morning.notifiedStops, []);
+});
+
+test("route completion leaves other route passengers and trip instances unchanged", () => {
+  current().reset();
+  current().passengerStatus("r2", "Boarded");
+  const school = current().routeTrips.school.morning;
+  current().endTrip("east");
+  assert.equal(current().riders[1].statuses.morning, "Completed");
+  assert.equal(current().riders[0].statuses.morning, "Waiting");
+  assert.equal(current().routeTrips.school.morning, school);
+  const count = current().activity.length;
+  current().endTrip("east");
+  assert.equal(current().activity.length, count);
+});
+test("all active route directions advance independently of the selected view and catch up after delays", () => {
+  current().reset();
+  const now = Date.parse("2026-10-22T08:00:00Z"),
+    routeTrips = seedRouteTrips(now);
+  routeTrips.east.evening = { ...routeTrips.east.morning, progress: 0 };
+  useShuttleStore.setState({
+    hydrated: true,
+    serviceDay: dayKey(now),
+    routeTrips,
+    trips: routeTrips.east,
+  });
+  current().setRun("evening");
+  current().tick(now + 60000);
+  assert.ok(
+    Math.abs(current().routeTrips.east.morning.progress - 0.22) < 1e-12,
+  );
+  assert.ok(
+    Math.abs(current().routeTrips.east.evening.progress - 0.04) < 1e-12,
+  );
+  assert.ok(
+    Math.abs(current().routeTrips.school.morning.progress - 0.22) < 1e-12,
+  );
+  const progress = current().routeTrips.east.morning.progress;
+  current().tick(now + 60000);
+  assert.equal(current().routeTrips.east.morning.progress, progress);
+});
+test("notifications cannot start scheduled runs or modify a different route and repeated starts are idempotent", () => {
+  current().reset();
+  current().setRun("evening");
+  assert.throws(() => current().notify("mad", "east"), /Start/);
+  assert.throws(() => current().notify("spi", "east"), /stop/);
+  current().startTrip("east");
+  const trip = current().routeTrips.east.evening,
+    count = current().activity.length;
+  current().startTrip("east");
+  assert.equal(current().routeTrips.east.evening, trip);
+  assert.equal(current().activity.length, count);
+  current().notify("mad", "east");
+  assert.equal(current().routeTrips.east.evening.status, "Arriving");
+  assert.equal(current().routeTrips.school.evening.status, "Scheduled");
+});
+test("absence cannot undo boarding and completed passengers cannot be boarded twice", () => {
+  current().reset();
+  current().loginDemo("commuter", "Worker");
+  current().passengerStatus("r2", "Boarded");
+  current().markAbsent();
+  assert.equal(current().riders[1].statuses.morning, "Boarded");
+  assert.equal(current().riders[1].statuses.evening, "Absent");
+  assert.throws(
+    () => current().passengerStatus("r2", "Skipped"),
+    /already boarded/,
+  );
+  current().endTrip("east");
+  assert.throws(() => current().passengerStatus("r2", "Boarded"), /completed/);
+});
+test("a scanner cannot accept another route pass and starting a different route preserves absence", () => {
+  current().reset();
+  const rider = current().riders[0];
+  assert.throws(
+    () => current().scan(passToken(rider), "east"),
+    /another route/,
+  );
+  current().markAbsent();
+  current().endTrip("school");
+  current().startTrip("school");
+  assert.equal(current().riders[0].statuses.morning, "Absent");
+});
+
+test("passed stops and invalid return windows are rejected without altering a booking", () => {
+  current().reset();
+  assert.throws(() => current().notify("adj", "east"), /already been passed/);
+  const evening = current().riders[0].evening;
+  assert.throws(() => current().setEvening("11:59 PM"), /valid evening/);
+  assert.equal(current().riders[0].evening, evening);
+});
+test("manual boarding synchronizes a stale service day before consuming the pass", () => {
+  current().reset();
+  useShuttleStore.setState({ serviceDay: "2000-01-01" });
+  current().passengerStatus("r2", "Boarded");
+  assert.equal(current().serviceDay, dayKey());
+  assert.ok(current().boardingRecords[0].key.includes(dayKey()));
+  assert.equal(current().riders[1].statuses.morning, "Boarded");
 });

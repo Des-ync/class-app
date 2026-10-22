@@ -15,6 +15,7 @@ import {
   Title,
   Badge,
 } from "../components/ui";
+import { stopProgress, stopTiming } from "../services/tracking";
 import { RouteMap } from "../components/RouteMap";
 import { driver, eveningTimes, plans, routes } from "../data/mockData";
 import { useShuttleStore } from "../store/useShuttleStore";
@@ -29,6 +30,7 @@ export const callDriver = () =>
   Linking.openURL(`tel:${driver.phone}`).catch(() => {});
 export const dateLabel = (value: string) =>
   new Date(value).toLocaleDateString(undefined, {
+    timeZone: "Africa/Accra",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -36,6 +38,7 @@ export const dateLabel = (value: string) =>
 export function Home({ navigation }: { navigation: any }) {
   const { store, rider } = useRider();
   const [slot, setSlot] = useState(false);
+  const [eveningError, setEveningError] = useState("");
   const [absent, setAbsent] = useState(false);
   const [evening, setEvening] = useState(rider.evening);
   const route = routes.find((r) => r.id === rider.routeId)!;
@@ -49,6 +52,7 @@ export function Home({ navigation }: { navigation: any }) {
     <Page
       title={`Good morning, ${rider.name.split(" ")[0]}`}
       subtitle={new Date().toLocaleDateString(undefined, {
+        timeZone: "Africa/Accra",
         weekday: "long",
         month: "long",
         day: "numeric",
@@ -130,11 +134,11 @@ export function Home({ navigation }: { navigation: any }) {
       </View>
       {(["morning", "evening"] as const).map((run) => {
         const status = rider.statuses[run];
-        const trip = store.trips[run];
+        const trip = store.routeTrips[rider.routeId][run];
         const text =
           status !== "Waiting"
             ? status
-            : trip.notifiedStops.includes(rider.stopId)
+            : trip.arrivalStopId === rider.stopId
               ? "Arriving in 2 mins"
               : trip.status;
         return (
@@ -205,7 +209,10 @@ export function Home({ navigation }: { navigation: any }) {
                   {driver.name} · {driver.plate}
                 </Text>
                 <Body>
-                  {driver.vehicle} · Seat {String(rider.seat).padStart(2, "0")}
+                  {driver.vehicle} ·{" "}
+                  {rider.seat
+                    ? `Seat ${String(rider.seat).padStart(2, "0")}`
+                    : "Seat assigned with plan"}
                 </Body>
               </View>
               <Pressable
@@ -231,6 +238,7 @@ export function Home({ navigation }: { navigation: any }) {
                   navigation.navigate("Track");
                 } else {
                   setEvening(rider.evening);
+                  setEveningError("");
                   setSlot(true);
                 }
               }}
@@ -266,11 +274,16 @@ export function Home({ navigation }: { navigation: any }) {
           immediately.
         </Body>
         <Chips options={eveningTimes} value={evening} onChange={setEvening} />
+        {!!eveningError && <Text style={s.error}>{eveningError}</Text>}
         <Button
           title="Confirm return time"
           onPress={() => {
-            store.setEvening(evening);
-            setSlot(false);
+            try {
+              store.setEvening(evening);
+              setSlot(false);
+            } catch (error) {
+              setEveningError((error as Error).message);
+            }
           }}
         />
       </Sheet>
@@ -280,8 +293,9 @@ export function Home({ navigation }: { navigation: any }) {
         onClose={() => setAbsent(false)}
       >
         <Body>
-          This marks both journeys absent for today and informs your driver.
-          Your subscription stays active.
+          This marks unstarted journeys absent for today and informs your
+          driver. Boarded or completed journeys stay unchanged. Your
+          subscription stays active.
         </Body>
         <Button
           title="Yes, mark me absent"
@@ -304,14 +318,12 @@ export function Home({ navigation }: { navigation: any }) {
 export function Tracker() {
   const { store, rider } = useRider();
   const route = routes.find((r) => r.id === rider.routeId)!;
-  const trip = store.trips[store.run];
+  const trip = store.routeTrips[rider.routeId][store.run];
   const points =
     store.run === "evening" ? [...route.stops].reverse() : route.stops;
-  const target =
-    points.findIndex((p) => p.id === rider.stopId) / (points.length - 1);
-  const eta = Math.max(0, Math.ceil((target - trip.progress) * 25));
+  const timing = stopTiming(route, store.run, rider.stopId, trip);
   const occupancy = store.riders.filter(
-    (r) => r.statuses[store.run] === "Boarded",
+    (r) => r.routeId === rider.routeId && r.statuses[store.run] === "Boarded",
   ).length;
   const [selected, setSelected] = useState("");
   return (
@@ -332,15 +344,21 @@ export function Tracker() {
       <Card>
         <View style={s.row}>
           <View>
-            <Label>TO YOUR PICKUP</Label>
+            <Label>
+              {store.run === "morning"
+                ? "TO YOUR PICKUP"
+                : "TO YOUR RETURN STOP"}
+            </Label>
             <Text style={s.big}>
-              {trip.status === "Scheduled"
+              {timing.state === "scheduled"
                 ? "Scheduled"
-                : trip.status === "Completed"
+                : timing.state === "completed"
                   ? "Arrived"
-                  : eta
-                    ? `${eta} min`
-                    : "At your stop"}
+                  : timing.state === "passed"
+                    ? "Stop passed"
+                    : timing.state === "at-stop"
+                      ? "At your stop"
+                      : `${timing.minutes} min`}
             </Text>
           </View>
           <Badge text={trip.status} green={trip.status !== "Scheduled"} />
@@ -382,7 +400,7 @@ export function Tracker() {
                   height: 16,
                   borderRadius: 8,
                   backgroundColor:
-                    trip.progress >= i / (points.length - 1)
+                    trip.progress >= stopProgress(route, store.run, stop.id)
                       ? C.green
                       : "white",
                   borderWidth: 2,
@@ -407,7 +425,7 @@ export function Tracker() {
               <Body>
                 {selected === stop.id
                   ? stop.landmark
-                  : trip.progress >= i / (points.length - 1)
+                  : trip.progress >= stopProgress(route, store.run, stop.id)
                     ? "Passed"
                     : "Upcoming stop"}
               </Body>
@@ -452,7 +470,7 @@ export function Pass({ navigation }: { navigation: any }) {
   const active = isSubscriptionActive(rider.subscription, now);
   const context = ticketContext(
     store.run,
-    store.trips[store.run],
+    store.routeTrips[rider.routeId][store.run],
     store.serviceDay,
   );
   const route = routes.find((r) => r.id === rider.routeId)!;
