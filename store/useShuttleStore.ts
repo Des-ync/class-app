@@ -13,8 +13,30 @@ import {
   Trip,
   PassengerStatus,
 } from "../types";
-import { dayKey, plans, routes, seedRiders, seedTrips } from "../data/mockData";
-import { api, verifyPass } from "../services/api";
+import {
+  dayKey,
+  plans,
+  routes,
+  seedRiders,
+  seedTrips,
+  morningTimes,
+  eveningTimes,
+} from "../data/mockData";
+import {
+  isSubscriptionActive,
+  operationId,
+  reserveSeat,
+  SeatHold,
+} from "../services/subscriptions";
+import { api, validatePayment, verifyPass } from "../services/api";
+interface CheckoutOperation extends SeatHold {
+  requestId: string;
+  planId: string;
+  method: string;
+  promise: Promise<Receipt>;
+}
+const checkouts = new Map<string, CheckoutOperation>();
+let generation = 0;
 interface State {
   hydrated: boolean;
   storageError: string | null;
@@ -84,7 +106,7 @@ export const useShuttleStore = create<State>()(
           return;
         }
         const base = seedRiders()[type === "Student" ? 0 : 1];
-        const id = `u${Date.now()}`;
+        const id = operationId("rider");
         set((s) => ({
           riders: [
             ...s.riders,
@@ -94,7 +116,7 @@ export const useShuttleStore = create<State>()(
               id,
               type,
               subscription: null,
-              seat: 15,
+              seat: 0,
               statuses: { morning: "Waiting", evening: "Waiting" },
             },
           ],
@@ -113,11 +135,27 @@ export const useShuttleStore = create<State>()(
           throw new Error("Choose a valid route and pickup stop.");
         if (booking.pickup === "home" && booking.address.trim().length < 10)
           throw new Error("Enter a full residential address and landmark.");
-        if (rider.statuses[s.run] === "Boarded")
+        if (checkouts.has(rider.id))
+          throw new Error(
+            "Wait for your payment to finish before changing routes.",
+          );
+        if (
+          !morningTimes.includes(booking.morning) ||
+          !eveningTimes.includes(booking.evening)
+        )
+          throw new Error("Choose a valid pickup and return window.");
+        if (route.stops.at(-1)?.id === booking.stopId)
+          throw new Error("Choose a pickup stop before the destination.");
+        if (Object.values(rider.statuses).includes("Boarded"))
           throw new Error("You can change your route after this trip ends.");
+        const seat = isSubscriptionActive(rider.subscription)
+          ? reserveSeat(s.riders, booking.routeId, rider.id, [
+              ...checkouts.values(),
+            ])
+          : 0;
         set((s) => ({
           riders: s.riders.map((r) =>
-            r.id === s.riderId ? { ...r, ...booking } : r,
+            r.id === s.riderId ? { ...r, ...booking, seat } : r,
           ),
           activity: [
             event(
@@ -173,39 +211,125 @@ export const useShuttleStore = create<State>()(
               : r,
           ),
         })),
-      checkout: async (input) => {
+      checkout: (input) => {
         const rider = get().riders.find((r) => r.id === get().riderId)!;
-        const receipt = await api.checkout(input, rider);
-        set((s) => ({
-          receipts: [receipt, ...s.receipts],
-          riders: s.riders.map((r) =>
-            r.id === rider.id
-              ? {
-                  ...r,
-                  pickup: plans.find((p) => p.id === input.planId)!.pickup,
-                  subscription: {
-                    planId: input.planId,
-                    start:
-                      r.subscription &&
-                      new Date(r.subscription.end) > new Date()
-                        ? r.subscription.start
-                        : receipt.start,
-                    end: receipt.end,
-                    autoRenew: r.subscription?.autoRenew ?? true,
-                  },
-                }
-              : r,
-          ),
-          activity: [
-            event(
-              "Payment successful",
-              `GHS ${receipt.amount} · ${receipt.method}`,
-              rider.id,
+        const error = validatePayment(input);
+        if (error) return Promise.reject(new Error(error));
+        const existing = input.requestId
+          ? get().receipts.find((r) => r.requestId === input.requestId)
+          : undefined;
+        if (existing) {
+          if (
+            existing.riderId !== rider.id ||
+            existing.planId !== input.planId ||
+            existing.method !== input.method
+          )
+            return Promise.reject(
+              new Error(
+                "This payment request was already used for a different purchase.",
+              ),
+            );
+          return Promise.resolve(existing);
+        }
+        if (
+          input.requestId &&
+          [...checkouts.values()].some(
+            (p) => p.requestId === input.requestId && p.riderId !== rider.id,
+          )
+        )
+          return Promise.reject(
+            new Error(
+              "This payment request is already processing for another rider.",
             ),
-            ...s.activity,
-          ].slice(0, 100),
-        }));
-        return receipt;
+          );
+        const pending = checkouts.get(rider.id);
+        if (pending) {
+          if (
+            pending.planId === input.planId &&
+            pending.method === input.method &&
+            (!input.requestId || input.requestId === pending.requestId)
+          )
+            return pending.promise;
+          return Promise.reject(
+            new Error("A payment is already processing for this rider."),
+          );
+        }
+        let seat: number;
+        try {
+          seat = reserveSeat(get().riders, rider.routeId, rider.id, [
+            ...checkouts.values(),
+          ]);
+        } catch (error) {
+          return Promise.reject(error);
+        }
+        const requestId = input.requestId || operationId("payment");
+        const epoch = generation;
+        const snapshot = {
+          ...rider,
+          subscription: rider.subscription ? { ...rider.subscription } : null,
+        };
+        const operation = {
+          riderId: rider.id,
+          routeId: rider.routeId,
+          seat,
+          requestId,
+          planId: input.planId,
+          method: input.method,
+        };
+        const promise = (async () => {
+          try {
+            const response = await api.checkout({ ...input }, snapshot);
+            const current = get().riders.find((r) => r.id === rider.id);
+            if (
+              epoch !== generation ||
+              !current ||
+              current.routeId !== snapshot.routeId
+            )
+              throw new Error(
+                "The booking changed while payment was processing. No pass was activated.",
+              );
+            const receipt: Receipt = {
+              ...response,
+              requestId,
+              routeId: rider.routeId,
+              seat,
+            };
+            set((s) => ({
+              receipts: [receipt, ...s.receipts],
+              riders: s.riders.map((r) =>
+                r.id === rider.id
+                  ? {
+                      ...r,
+                      seat,
+                      pickup: plans.find((p) => p.id === input.planId)!.pickup,
+                      subscription: {
+                        planId: input.planId,
+                        start: isSubscriptionActive(r.subscription)
+                          ? r.subscription!.start
+                          : receipt.start,
+                        end: receipt.end,
+                        autoRenew: r.subscription?.autoRenew ?? true,
+                      },
+                    }
+                  : r,
+              ),
+              activity: [
+                event(
+                  "Payment successful",
+                  `GHS ${receipt.amount} · ${receipt.method}`,
+                  rider.id,
+                ),
+                ...s.activity,
+              ].slice(0, 100),
+            }));
+            return receipt;
+          } finally {
+            if (checkouts.get(rider.id)?.requestId === requestId)
+              checkouts.delete(rider.id);
+          }
+        })();
+        checkouts.set(rider.id, { ...operation, promise });
+        return promise;
       },
       setRun: (run) => set({ run }),
       startTrip: () =>
@@ -354,7 +478,9 @@ export const useShuttleStore = create<State>()(
         const rider = verifyPass(token, get().riders);
         get().passengerStatus(rider.id, "Boarded");
       },
-      reset: () =>
+      reset: () => {
+        generation++;
+        checkouts.clear();
         set({
           riders: seedRiders(),
           receipts: [],
@@ -363,7 +489,8 @@ export const useShuttleStore = create<State>()(
           run: "morning",
           riderId: "r1",
           serviceDay: dayKey(),
-        }),
+        });
+      },
     }),
     {
       name: "shuttlepass-v1",

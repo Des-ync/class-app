@@ -1,4 +1,5 @@
 import { PaymentInput, Receipt, Rider } from "../types";
+import { isSubscriptionActive, operationId } from "./subscriptions";
 import { addDays, plans } from "../data/mockData";
 export const delay = (ms = 500) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -60,13 +61,11 @@ export const api = {
     const error = validatePayment(input);
     if (error) throw new Error(error);
     await delay(1100);
-    const start =
-      rider.subscription &&
-      new Date(rider.subscription.end).getTime() > Date.now()
-        ? rider.subscription.end
-        : new Date().toISOString();
+    const start = isSubscriptionActive(rider.subscription)
+      ? rider.subscription!.end
+      : new Date().toISOString();
     return {
-      id: `SP-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+      id: operationId("SP"),
       riderId: rider.id,
       planId: input.planId,
       amount: plans.find((p) => p.id === input.planId)!.price,

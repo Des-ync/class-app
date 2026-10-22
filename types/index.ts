@@ -49,6 +49,9 @@ export interface Rider {
   statuses: Record<Run, PassengerStatus>;
 }
 export interface Receipt {
+  requestId?: string;
+  routeId?: string;
+  seat?: number;
   id: string;
   riderId: string;
   planId: string;
@@ -79,6 +82,7 @@ export interface Booking {
   evening: string;
 }
 export interface PaymentInput {
+  requestId?: string;
   planId: string;
   method: string;
   account: string;

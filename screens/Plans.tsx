@@ -17,6 +17,7 @@ import {
   Title,
   Badge,
 } from "../components/ui";
+import { operationId } from "../services/subscriptions";
 import { plans } from "../data/mockData";
 import { Receipt } from "../types";
 import { dateLabel, useRider } from "./Commuter";
@@ -57,6 +58,7 @@ export async function exportReceipt(receipt: Receipt, name: string) {
 export function Plans() {
   const { store, rider } = useRider();
   const [selected, setSelected] = useState<string | null>(null);
+  const [requestId, setRequestId] = useState(() => operationId("payment"));
   const [method, setMethod] = useState(methods[0]);
   const [account, setAccount] = useState("024 123 4567");
   const [expiry, setExpiry] = useState("12/30");
@@ -74,6 +76,7 @@ export function Plans() {
     try {
       const result = await store.checkout({
         planId: selected,
+        requestId,
         method,
         account,
         expiry,
@@ -156,6 +159,7 @@ export function Plans() {
             secondary={i !== 1}
             onPress={() => {
               setSelected(p.id);
+              setRequestId(operationId("payment"));
               setError("");
             }}
           />
