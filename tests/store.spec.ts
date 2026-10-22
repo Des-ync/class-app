@@ -391,3 +391,25 @@ test("boarding remains optimistic during storage failure and persists both statu
   assert.equal(current().riders[1].statuses.morning, "Boarded");
   assert.equal(current().boardingRecords.length, 1);
 });
+
+test("mutating a pending checkout form cannot activate a different tier or invalidate the request identity", async () => {
+  current().reset();
+  current().loginDemo("commuter", "Worker");
+  const input = { ...payment, requestId: "immutable-purchase" };
+  const pending = current().checkout(input);
+  input.planId = "vip";
+  input.requestId = "mutated-purchase";
+  const receipt = await pending;
+  const rider = current().riders[1];
+  assert.equal(receipt.planId, "worker");
+  assert.equal(receipt.amount, 650);
+  assert.equal(receipt.requestId, "immutable-purchase");
+  assert.equal(rider.subscription!.planId, "worker");
+  assert.equal(rider.pickup, "stop");
+  assert.equal(
+    (await current().checkout({ ...payment, requestId: "immutable-purchase" }))
+      .id,
+    receipt.id,
+  );
+  assert.equal(current().receipts.length, 1);
+});

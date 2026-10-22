@@ -35,3 +35,9 @@
 - Problem identified: an idle flush could leave a same-turn boarding write queued, and clearing a storage warning could enqueue an undrained snapshot. Offline browser behavior and integrated failed-disk boarding lacked coverage.
 - Changes made: avoid idle flush locks and drain reentrant snapshots before declaring success. Add integrated optimistic-boarding/durable-ledger recovery tests. Make browser smoke self-contained: fresh web build, ephemeral server, portable Chromium selection, and guaranteed cleanup. Disconnect browser networking during QR boarding and cached-pass display; reconnect and verify reload persistence. Refresh screenshot artifacts.
 - Verification: lint and TypeScript pass; all 34 automated tests pass. Browser checkout/receipt/QR/offline/pass/reload/admin flows pass with no runtime errors. Fresh iOS, Android, and web bundles compile. No original tests were deleted or relaxed; geometry tests use a numerical tolerance appropriate for floating-point interpolation.
+
+## Iteration 6 — immutable payment intent
+
+- Problem identified: a caller could mutate a pending payment object so the store activated a different plan from the charged receipt; direct simulated API calls also read mutable customer validity after waiting.
+- Changes made: snapshot payment fields and customer subscription before asynchronous work, and constrain idempotency-key format/length so persisted retries remain representable by the cache schema.
+- Verification: lint, TypeScript, and all 36 tests pass. New tests mutate the caller’s plan, payment method, request ID, and subscription dates during checkout, then assert the original price/plan/identity/validity and idempotent retry remain intact.

@@ -5,6 +5,11 @@ export const delay = (ms = 500) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 export function validatePayment(input: PaymentInput): string | null {
   if (
+    input.requestId !== undefined &&
+    !/^[A-Za-z0-9_-]{1,128}$/.test(input.requestId)
+  )
+    return "Use a valid payment request ID (1–128 letters, numbers, underscores or hyphens).";
+  if (
     ![
       "MTN MoMo",
       "Telecel Cash",
@@ -57,7 +62,12 @@ export const api = {
     if (name.trim().length < 2) throw new Error("Enter your full name.");
     return { email: email.trim().toLowerCase(), name: name.trim() };
   },
-  async checkout(input: PaymentInput, rider: Rider): Promise<Receipt> {
+  async checkout(payment: PaymentInput, customer: Rider): Promise<Receipt> {
+    const input = { ...payment };
+    const rider = {
+      ...customer,
+      subscription: customer.subscription ? { ...customer.subscription } : null,
+    };
     const error = validatePayment(input);
     if (error) throw new Error(error);
     await delay(1100);

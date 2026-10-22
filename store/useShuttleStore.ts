@@ -250,7 +250,8 @@ export const useShuttleStore = create<State>()(
               : r,
           ),
         })),
-      checkout: (input) => {
+      checkout: (payment) => {
+        const input = { ...payment };
         const rider = get().riders.find((r) => r.id === get().riderId)!;
         const error = validatePayment(input);
         if (error) return Promise.reject(new Error(error));

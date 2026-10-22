@@ -197,3 +197,22 @@ test("elapsed-time tracking handles delayed ticks, background resumption and bac
   assert.equal(dayKey(Date.parse("2026-10-22T23:59:59Z")), "2026-10-22");
   assert.equal(dayKey(Date.parse("2026-10-23T00:00:00Z")), "2026-10-23");
 });
+
+test("checkout captures the payment intent and subscription before asynchronous work", async () => {
+  const rider = seedRiders()[1],
+    expected = rider.subscription!.end,
+    input = { ...card };
+  const pending = api.checkout(input, rider);
+  input.planId = "vip";
+  input.method = "MTN MoMo";
+  rider.subscription!.end = addDays(new Date(), 120);
+  const receipt = await pending;
+  assert.equal(receipt.planId, "worker");
+  assert.equal(receipt.amount, 650);
+  assert.equal(receipt.method, "Visa / Mastercard");
+  assert.equal(receipt.start, expected);
+  assert.match(
+    validatePayment({ ...card, requestId: "x".repeat(129) })!,
+    /request ID/,
+  );
+});
