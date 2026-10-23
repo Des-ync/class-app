@@ -1,0 +1,10 @@
+{
+  "client": "local-simulator",
+  "authentication": "demo",
+  "payments": "simulated",
+  "ticketIssuer": "in-process",
+  "tracking": "simulated",
+  "synchronization": "single-device",
+  "accountDeletion": "local-reset",
+  "observability": "local-only"
+}

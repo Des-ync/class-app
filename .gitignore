@@ -14,3 +14,19 @@ coverage/
 dist-native/
 
 .test-web/
+
+release/status.json
+*.p12
+*.p8
+*.jks
+*.keystore
+*.mobileprovision
+*service-account*.json
+release/evidence/private/
+
+dist-release/
+
+release/dependency-audit.json
+
+.secrets/
+credentials.json

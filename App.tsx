@@ -91,6 +91,18 @@ function Root() {
   return (
     <>
       <StatusBar style="dark" />
+      <Text
+        accessibilityRole="text"
+        style={{
+          textAlign: "center",
+          fontSize: 10,
+          padding: 6,
+          backgroundColor: "#FEF3C7",
+          color: "#92400E",
+        }}
+      >
+        DEMO • Payments and tracking are simulated
+      </Text>
       {storageError && (
         <Text style={{ padding: 12, color: C.red }}>{storageError}</Text>
       )}

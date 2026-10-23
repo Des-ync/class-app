@@ -2,6 +2,10 @@
 
 A self-contained Expo / React Native subscription shuttle app for iOS, Android, and web. Built with TypeScript, React Navigation, Zustand, AsyncStorage, SVG maps, and real QR rendering.
 
+## Production launch setup
+
+See [LAUNCH.md](LAUNCH.md) for EAS profiles, CI, security checks and the exact remaining launch requirements. Public production is gated because the app still uses simulated services.
+
 ## Launch
 
 From this directory, run:

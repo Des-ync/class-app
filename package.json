@@ -11,6 +11,7 @@
     "expo-crypto": "~58.0.7",
     "expo-file-system": "~58.0.10",
     "expo-sharing": "~58.0.19",
+    "expo-splash-screen": "~58.0.10",
     "expo-status-bar": "~58.0.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -27,6 +28,7 @@
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
     "@types/react": "~19.3.0",
+    "eas-cli": "25.3.0",
     "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~58.0.4",
@@ -43,7 +45,29 @@
     "test": "node tests/run-store.cjs",
     "test:smoke": "expo export --platform web --output-dir .test-web && node tests/smoke.cjs",
     "format": "prettier --write App.tsx components data screens services store types tests",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "verify": "node scripts/verify-release.cjs",
+    "test:release": "node --test tests/release.test.cjs && node scripts/validate-eas.cjs",
+    "launch:report": "node scripts/release-check.cjs --report",
+    "launch:check": "node scripts/release-check.cjs",
+    "export:all": "expo export --platform all --output-dir dist-release",
+    "build:preview": "node scripts/check-eas-project.cjs && npx eas-cli@25.3.0 build --profile preview --platform all --non-interactive",
+    "build:production": "npm run launch:check && npm run security:audit && npx eas-cli@25.3.0 build --profile production --platform all --non-interactive",
+    "eas-build-pre-install": "node scripts/build-preflight.cjs",
+    "eas-build-post-install": "npm run verify",
+    "security:audit": "node scripts/audit-dependencies.cjs"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=24.3.0 <25",
+    "npm": ">=11 <12"
+  },
+  "packageManager": "npm@11.9.0",
+  "overrides": {
+    "joi": "17.13.8",
+    "minimatch@5": "5.1.8",
+    "nanoid@3": "3.3.18",
+    "ajv@8": "8.18.0",
+    "yaml@2": "2.8.3"
+  }
 }

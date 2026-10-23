@@ -1,0 +1,61 @@
+name: Build mobile release
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        type: choice
+        options: [preview, production]
+        default: preview
+        required: true
+        description: Production remains gated until live integrations pass verification.
+permissions:
+  contents: read
+concurrency:
+  group: build-${{ inputs.profile }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: ${{ inputs.profile }}
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+      EAS_BUILD_PROFILE: ${{ inputs.profile }}
+      EXPO_PUBLIC_APP_ENV: ${{ inputs.profile == 'production' && 'production' || 'staging' }}
+      EXPO_APP_OWNER: ${{ vars.EXPO_APP_OWNER }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
+      EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+      EXPO_PUBLIC_PRIVACY_URL: ${{ vars.EXPO_PUBLIC_PRIVACY_URL }}
+      EXPO_PUBLIC_TERMS_URL: ${{ vars.EXPO_PUBLIC_TERMS_URL }}
+      EXPO_PUBLIC_DELETION_URL: ${{ vars.EXPO_PUBLIC_DELETION_URL }}
+      EXPO_PUBLIC_SUPPORT_EMAIL: ${{ vars.EXPO_PUBLIC_SUPPORT_EMAIL }}
+      EXPO_IOS_NON_EXEMPT_ENCRYPTION: ${{ vars.EXPO_IOS_NON_EXEMPT_ENCRYPTION }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+        env:
+          EAS_BUILD_PROFILE: preview
+          EXPO_PUBLIC_APP_ENV: staging
+      - name: Verify source in simulator environment
+        run: npm run verify
+        env:
+          EAS_BUILD_PROFILE: preview
+          EXPO_PUBLIC_APP_ENV: staging
+      - name: Audit production build dependencies
+        if: inputs.profile == 'production'
+        run: npm run security:audit
+      - run: node scripts/check-eas-project.cjs
+      - run: node scripts/build-preflight.cjs
+      - name: Build signed artifacts
+        run: |
+          test -n "$EXPO_TOKEN" || { echo 'EXPO_TOKEN is not configured in this GitHub environment.'; exit 1; }
+          npx eas-cli@25.3.0 build --platform all --profile "$EAS_BUILD_PROFILE" --non-interactive --wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

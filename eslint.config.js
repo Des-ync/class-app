@@ -7,6 +7,7 @@ module.exports = defineConfig([
       "dist/**",
       "dist-web/**",
       "dist-native/**",
+      "dist-release/**",
       ".test-build/**",
       ".test-web/**",
       "artifacts/**",
