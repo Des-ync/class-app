@@ -1,6 +1,6 @@
 # ShuttlePass Demo launch guide
 
-Status as of **27 October 2026**: the app is ready to ship to the stores as **ShuttlePass Demo**, a self-contained demonstration that runs entirely on the device. What remains are things only the account holder can do: create the store and Expo accounts, host the privacy policy, and test on real devices. `npm run launch:check` lists exactly which of those are still open.
+Status as of **27 October 2026**: the app is ready to ship to the stores as **ShuttlePass Demo**, a self-contained demonstration that runs entirely on the device. The privacy policy, support and data-deletion pages are live on Netlify, and the support email and export-compliance answer are set. What remains needs the account holder's own logins: the Expo project, the Apple and Google store records, and testing on real devices. `npm run launch:check` lists exactly which items are still open (5/9 pass today).
 
 ## What the release is
 
@@ -25,28 +25,30 @@ The safe path is:
 1. **TestFlight and Google Play internal or closed testing.** These accept demo builds and need no public review for internal testers. This is what `eas submit` targets by default here (`android.track: internal`, `releaseStatus: draft`).
 2. **Public listing.** Only if you accept the review risk above. Describe the app on the listing as a demo, for example: "An interactive demo of a subscription shuttle service in Accra. Routes, drivers, payments and tracking are simulated; no real rides or payments." Use real screenshots of the demo.
 
+## Store pages (done)
+
+The static site in `site/` is deployed to the Netlify project `shuttlepass-demo` (`netlify.toml` publishes only that folder):
+
+| Store field                              | URL                                               |
+| ---------------------------------------- | ------------------------------------------------- |
+| Privacy policy (both stores)             | https://shuttlepass-demo.netlify.app/privacy/     |
+| Support URL (App Store) / website (Play) | https://shuttlepass-demo.netlify.app/support/     |
+| Data deletion (Play, if asked)           | https://shuttlepass-demo.netlify.app/delete-data/ |
+| Support email                            | kingema93@gmail.com                               |
+
+`eas.json` sets `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_SUPPORT_EMAIL` and `EXPO_IOS_NON_EXEMPT_ENCRYPTION=false` for preview and production builds, so the app's Profile links work without extra setup. When you edit `PRIVACY.md`, edit `site/privacy/index.html` to match (a release test compares their headings and date), then redeploy. To have Netlify redeploy on every push, connect the GitHub repo in the Netlify project settings.
+
 ## One-time setup (account holder)
 
-1. **Expo.** Create or choose an Expo account or organization, then link the project: `npx eas-cli@25.3.0 init`. Note the project ID.
-2. **Stores.** Register `app.shuttlepass.mobile` in Apple Developer / App Store Connect and Google Play Console. Let EAS manage signing (`npx eas-cli@25.3.0 credentials`) or upload your own.
-3. **Privacy policy.** Host `PRIVACY.md` (edit it first if anything about your setup differs) at a public HTTPS URL, for example with GitHub Pages or Netlify.
-4. **Store privacy forms.** Fill in Apple App Privacy and Google Play Data safety using `release/data-inventory.md` ("Data Not Collected" / no data collected or shared).
-5. **Export compliance.** Decide your answer. The app only uses signing and the OS's HTTPS, which is typically exempt (`false`); the declaration is yours to make.
-6. **Environment values.** Set these in the EAS `production` and `preview` environments (they are compiled into the app) and as GitHub environment variables for the build workflow:
-
-   | Variable                         | Value                             |
-   | -------------------------------- | --------------------------------- |
-   | `EXPO_APP_OWNER`                 | Expo account or organization slug |
-   | `EXPO_PUBLIC_EAS_PROJECT_ID`     | Project UUID from step 1          |
-   | `EXPO_PUBLIC_PRIVACY_URL`        | Hosted privacy policy URL         |
-   | `EXPO_PUBLIC_SUPPORT_EMAIL`      | A support address you monitor     |
-   | `EXPO_IOS_NON_EXEMPT_ENCRYPTION` | `true` or `false`                 |
-
-   Add `EXPO_TOKEN` as a GitHub environment secret. Never put secrets in `EXPO_PUBLIC_*`.
+1. **Expo.** Create or choose an Expo account or organization, then link the project: `npx eas-cli@25.3.0 login` and `npx eas-cli@25.3.0 init`. Note the project ID and owner slug.
+2. **GitHub.** In the repository settings, create `preview` and `production` environments. Add the variables `EXPO_APP_OWNER` and `EXPO_PUBLIC_EAS_PROJECT_ID`, and the secret `EXPO_TOKEN` (create one at expo.dev under Access tokens). Set the same two variables in the EAS `preview` and `production` environments. Never put secrets in `EXPO_PUBLIC_*`.
+3. **Stores.** Register `app.shuttlepass.mobile` in App Store Connect (Apple Developer Program, USD 99/year) and Google Play Console (USD 25 one-time). Let EAS manage signing (`npx eas-cli@25.3.0 credentials`) or upload your own. New personal Google Play accounts may have to run a closed test with a minimum number of testers for about two weeks before production access; check the current rule in Play Console.
+4. **Store listing.** Use the URLs above. Fill in Apple App Privacy and Google Play Data safety from `release/data-inventory.md` ("Data Not Collected" / no data collected or shared). Answer export compliance with "No" for non-exempt encryption, matching `EXPO_IOS_NON_EXEMPT_ENCRYPTION=false`.
+5. **Evidence.** Set `store_accounts` in `release/readiness.json` to `verified` with the App Store Connect app ID and Play package link once both records exist.
 
 ## Release checklist
 
-1. `npm ci && npm run verify` (lint, typecheck, 47 unit and release tests).
+1. `npm ci && npm run verify` (lint, typecheck, 48 unit and release tests).
 2. `npm run build:preview` (or the **Build mobile release** workflow with `preview`) and install it on a physical iPhone and Android phone.
 3. Run the device acceptance list below. Record the build IDs, devices, OS versions and results in `release/evidence/device-acceptance.md`.
 4. Mark the evidence in `release/readiness.json`: set each item's `status` to `verified` and `evidence` to the file or link that proves it. Only do this once the item is actually done.

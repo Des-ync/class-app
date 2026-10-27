@@ -6,13 +6,13 @@
       "id": "store_accounts",
       "status": "blocked",
       "evidence": "",
-      "reason": "Expo project ownership, Apple Developer and Google Play accounts are not configured. Register app.shuttlepass.mobile in both stores."
+      "reason": "Expo project ownership, Apple Developer and Google Play accounts are not configured. Register app.shuttlepass.mobile in both stores, then complete Apple App Privacy and Google Play Data safety from release/data-inventory.md."
     },
     {
       "id": "privacy_policy",
-      "status": "blocked",
-      "evidence": "",
-      "reason": "Host PRIVACY.md (or an operator-reviewed equivalent) at EXPO_PUBLIC_PRIVACY_URL and complete Apple privacy labels and Google Data safety as described in release/data-inventory.md."
+      "status": "verified",
+      "evidence": "https://shuttlepass-demo.netlify.app/privacy/ (Netlify project shuttlepass-demo, deploy 6ae04be85c40c6ca80db48c0, published 2026-10-27 from site/). HTTPS 200 verified; support and data-deletion pages at /support/ and /delete-data/.",
+      "reason": "Privacy policy must be publicly hosted at EXPO_PUBLIC_PRIVACY_URL and match PRIVACY.md."
     },
     {
       "id": "device_acceptance",

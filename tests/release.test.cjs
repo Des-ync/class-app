@@ -68,10 +68,13 @@ test("demo store release needs store identity and evidence, not a backend", () =
   ])
     assert.ok(checks.find((c) => c.id === id)?.passed, id);
   assert.ok(!checks.some((c) => /backend|billing|capability/.test(c.id)));
-  // Committed evidence is still missing, so the release stays blocked.
+  // Unverified evidence keeps the release blocked.
   assert.ok(
-    checks.filter((c) => c.id.startsWith("evidence.")).every((c) => !c.passed),
+    !productionChecks(storeEnv, { checks: [] })
+      .filter((c) => c.id.startsWith("evidence."))
+      .some((c) => c.passed),
   );
+  assert.ok(checks.some((c) => c.id.startsWith("evidence.") && !c.passed));
   const verified = {
     checks: requiredEvidence.map((id) => ({
       id,
@@ -337,4 +340,31 @@ test("native config plugins enforce backup, transport and unused-permission rest
       ),
       suffix,
     );
+});
+
+test("hosted store pages match the committed privacy policy and build values", () => {
+  const fs = require("node:fs"),
+    path = require("node:path");
+  const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+  const policy = read("PRIVACY.md");
+  const page = read("site/privacy/index.html");
+  for (const heading of policy.match(/^## .+$/gm))
+    assert.ok(page.includes(heading.slice(3)), heading);
+  assert.ok(
+    page.includes(policy.match(/_Last updated: (.+)_/)[1]),
+    "site/privacy/index.html and PRIVACY.md last-updated dates differ",
+  );
+  for (const profile of ["preview", "production"]) {
+    const env = eas.build[profile].env;
+    assert.ok(publicHttps(env.EXPO_PUBLIC_PRIVACY_URL), profile);
+    assert.ok(env.EXPO_PUBLIC_PRIVACY_URL.endsWith("/privacy/"), profile);
+    assert.ok(["true", "false"].includes(env.EXPO_IOS_NON_EXEMPT_ENCRYPTION));
+    for (const file of [
+      "site/privacy/index.html",
+      "site/support/index.html",
+      "site/delete-data/index.html",
+    ])
+      assert.ok(read(file).includes(env.EXPO_PUBLIC_SUPPORT_EMAIL), file);
+  }
+  assert.match(read("netlify.toml"), /publish = "site"/);
 });

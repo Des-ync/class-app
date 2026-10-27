@@ -21,3 +21,5 @@ dist-release/
 
 .secrets/
 credentials.json
+.netlify/
+site/

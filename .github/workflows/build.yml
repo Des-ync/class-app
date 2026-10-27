@@ -25,9 +25,6 @@ jobs:
       EXPO_PUBLIC_APP_ENV: ${{ inputs.profile == 'production' && 'production' || 'staging' }}
       EXPO_APP_OWNER: ${{ vars.EXPO_APP_OWNER }}
       EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
-      EXPO_PUBLIC_PRIVACY_URL: ${{ vars.EXPO_PUBLIC_PRIVACY_URL }}
-      EXPO_PUBLIC_SUPPORT_EMAIL: ${{ vars.EXPO_PUBLIC_SUPPORT_EMAIL }}
-      EXPO_IOS_NON_EXEMPT_ENCRYPTION: ${{ vars.EXPO_IOS_NON_EXEMPT_ENCRYPTION }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:

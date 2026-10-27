@@ -30,3 +30,5 @@ release/dependency-audit.json
 
 .secrets/
 credentials.json
+
+.netlify/

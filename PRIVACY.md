@@ -30,4 +30,6 @@ If a future version starts collecting data, this policy will be updated before t
 
 ## Contact
 
-Questions about this policy: write to the support address shown on the app's store listing and in the app under **Profile > Privacy & support**.
+Questions about this policy: [kingema93@gmail.com](mailto:kingema93@gmail.com).
+
+This policy is published at <https://shuttlepass-demo.netlify.app/privacy/>; the page source is `site/privacy/index.html`.
