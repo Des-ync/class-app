@@ -74,7 +74,6 @@ test("demo store release needs store identity and evidence, not a backend", () =
       .filter((c) => c.id.startsWith("evidence."))
       .some((c) => c.passed),
   );
-  assert.ok(checks.some((c) => c.id.startsWith("evidence.") && !c.passed));
   const verified = {
     checks: requiredEvidence.map((id) => ({
       id,
@@ -119,6 +118,10 @@ test("production preflight blocks until launch checks pass while preview is buil
       ...process.env,
       EAS_BUILD_PROFILE: "production",
       EXPO_PUBLIC_APP_ENV: "production",
+      // A missing project blocks regardless of the committed evidence, so this
+      // still holds once the repository itself is release-ready.
+      EXPO_PUBLIC_EAS_PROJECT_ID: "",
+      EXPO_APP_OWNER: "",
     },
     encoding: "utf8",
   });
