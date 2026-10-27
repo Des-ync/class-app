@@ -11,7 +11,7 @@
     {
       "id": "privacy_policy",
       "status": "verified",
-      "evidence": "https://shuttlepass-demo.netlify.app/privacy/ (Netlify project shuttlepass-demo, deploy 6ae04cb51f64cdf4847fb5a9, published 2026-10-27 from site/ at commit 017f807). HTTPS 200 verified; support and data-deletion pages at /support/ and /delete-data/.",
+      "evidence": "https://shuttlepass-demo.netlify.app/privacy/ (Git-linked Netlify project shuttlepass-demo, site 67957e28-6b9a-427e-b35a-545df83d7314, production deploy 6ae05b14d3d78d180f2f7838 from main at 74dee75, verified 2026-10-27). HTTPS 200 and content identical to site/; support and data-deletion pages at /support/ and /delete-data/.",
       "reason": "Privacy policy must be publicly hosted at EXPO_PUBLIC_PRIVACY_URL and match PRIVACY.md."
     },
     {

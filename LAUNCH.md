@@ -36,7 +36,7 @@ The static site in `site/` is deployed to the Netlify project `shuttlepass-demo`
 | Data deletion (Play, if asked)           | https://shuttlepass-demo.netlify.app/delete-data/ |
 | Support email                            | kingema93@gmail.com                               |
 
-`eas.json` sets `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_SUPPORT_EMAIL` and `EXPO_IOS_NON_EXEMPT_ENCRYPTION=false` for preview and production builds, so the app's Profile links work without extra setup. When you edit `PRIVACY.md`, edit `site/privacy/index.html` to match (a release test compares their headings and date), then redeploy. To have Netlify redeploy on every push, connect the repository once in the Netlify dashboard (Project configuration > Build & deploy > Link repository, choose GitHub and `Des-ync/class-app`, production branch `main`, build command empty, publish directory `site`). `netlify.toml` then skips any build where `site/` and `netlify.toml` are unchanged, and pull requests that touch the site get a Deploy Preview.
+`eas.json` sets `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_SUPPORT_EMAIL` and `EXPO_IOS_NON_EXEMPT_ENCRYPTION=false` for preview and production builds, so the app's Profile links work without extra setup. When you edit `PRIVACY.md`, edit `site/privacy/index.html` to match (a release test compares their headings and date). The Netlify project is linked to `Des-ync/class-app`: merging to `main` publishes the site, pull requests that touch it get a Deploy Preview, and `netlify.toml` skips builds where `site/` and `netlify.toml` are unchanged. The original hand-uploaded project is kept as `shuttlepass-demo-old` and can be deleted.
 
 ## One-time setup (account holder)
 
