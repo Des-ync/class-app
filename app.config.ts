@@ -1,13 +1,22 @@
 import type { ExpoConfig } from "expo/config";
 import base from "./app.json";
-import { assertSimulatorEnvironment, uuid } from "./release/policy.cjs";
+import { resolveEnvironment, uuid } from "./release/policy.cjs";
 
 export default (): ExpoConfig => {
-  const environment = assertSimulatorEnvironment({
+  const environment = resolveEnvironment({
     appEnvironment: process.env.EXPO_PUBLIC_APP_ENV,
     buildProfile: process.env.EAS_BUILD_PROFILE,
   });
-  const suffix = environment === "staging" ? ".preview" : ".dev";
+  // Every environment ships the on-device simulation. Production is the store
+  // listing of that demo; dev and preview installs sit beside it.
+  const suffix = { demo: ".dev", staging: ".preview", production: "" }[
+    environment
+  ];
+  const name = {
+    demo: "ShuttlePass Dev",
+    staging: "ShuttlePass Preview",
+    production: "ShuttlePass Demo",
+  }[environment];
   const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
   if (projectId && !uuid(projectId))
     throw new Error(
@@ -32,7 +41,7 @@ export default (): ExpoConfig => {
         },
       ],
     ],
-    name: `ShuttlePass ${environment === "staging" ? "Preview" : "Demo"}`,
+    name,
     scheme: `shuttlepass${suffix.replace(".", "-")}`,
     ...(process.env.EXPO_APP_OWNER
       ? { owner: process.env.EXPO_APP_OWNER }
@@ -47,6 +56,32 @@ export default (): ExpoConfig => {
         ...(classification
           ? { ITSAppUsesNonExemptEncryption: classification === "true" }
           : {}),
+      },
+      privacyManifests: {
+        NSPrivacyTracking: false,
+        NSPrivacyTrackingDomains: [],
+        NSPrivacyCollectedDataTypes: [],
+        NSPrivacyAccessedAPITypes: [
+          {
+            NSPrivacyAccessedAPIType:
+              "NSPrivacyAccessedAPICategoryUserDefaults",
+            NSPrivacyAccessedAPITypeReasons: ["CA92.1"],
+          },
+          {
+            NSPrivacyAccessedAPIType:
+              "NSPrivacyAccessedAPICategoryFileTimestamp",
+            NSPrivacyAccessedAPITypeReasons: ["C617.1"],
+          },
+          {
+            NSPrivacyAccessedAPIType:
+              "NSPrivacyAccessedAPICategorySystemBootTime",
+            NSPrivacyAccessedAPITypeReasons: ["35F9.1"],
+          },
+          {
+            NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryDiskSpace",
+            NSPrivacyAccessedAPITypeReasons: ["E174.1"],
+          },
+        ],
       },
     },
     android: {

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "policy": "Each exception covers one advisory in a shipped dependency, records how it was assessed, and expires within 120 days so it is reviewed again. The audit gate ignores expired or incomplete entries.",
+  "exceptions": [
+    {
+      "package": "zod",
+      "advisory": "GHSA-mrhx-c7xc-m3w5",
+      "severity": "high",
+      "introducedBy": "expo > @expo/cli (zod ^3.25.76)",
+      "expires": "2027-01-31",
+      "assessment": "Memory exhaustion when validating oversized constrained collections. No patched 3.x release exists and @expo/cli 58.x requires zod 3. zod runs only inside the Expo CLI on developer and CI machines, which validates local project config; it is not part of the app. Checked 2026-10-27 by exporting iOS, Android and web bundles with source maps: the only @expo/cli file bundled is build/metro-require/require.js (the Metro module runtime), and no zod source appears in any bundle. Remove this entry once Expo ships a CLI on a patched zod."
+    }
+  ]
+}

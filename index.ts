@@ -1,9 +1,9 @@
 import { registerRootComponent } from "expo";
 
-import { assertSimulatorEnvironment } from "./release/policy.cjs";
+import { resolveEnvironment } from "./release/policy.cjs";
 
-assertSimulatorEnvironment({ appEnvironment: process.env.EXPO_PUBLIC_APP_ENV });
-// Load simulator state and its local issuer only after the environment guard.
+// Fail fast on an unknown environment before any state is loaded.
+resolveEnvironment({ appEnvironment: process.env.EXPO_PUBLIC_APP_ENV });
 const App = require("./App").default;
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);

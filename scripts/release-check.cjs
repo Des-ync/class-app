@@ -8,15 +8,17 @@ function auditGate(audit, lockHash, now = Date.now()) {
   return {
     id: "dependency.audit",
     passed:
+      audit?.schemaVersion === 2 &&
+      audit?.scope === "shipped" &&
       audit?.lockfileSha256 === lockHash &&
       Number.isFinite(age) &&
       age >= 0 &&
       age <= 86400000 &&
-      audit?.counts?.high === 0 &&
-      audit?.counts?.critical === 0,
-    detail: audit?.counts
-      ? `Registry audit: ${audit.counts.high} high, ${audit.counts.critical} critical; must be clean, less than 24 hours old, and match package-lock.json.`
-      : "A fresh lockfile-bound dependency audit is required.",
+      audit?.blocking?.high === 0 &&
+      audit?.blocking?.critical === 0,
+    detail: audit?.blocking
+      ? `Shipped dependencies: ${audit.blocking.high} high, ${audit.blocking.critical} critical without an active exception; must be zero, less than 24 hours old, and match package-lock.json.`
+      : "A fresh lockfile-bound dependency audit is required (npm run security:audit).",
   };
 }
 function report(env = process.env) {

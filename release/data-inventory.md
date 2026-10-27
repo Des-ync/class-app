@@ -1,18 +1,24 @@
-# Data inventory for release review
+# Data inventory for store privacy forms
 
-This describes the current simulator, not a final production privacy policy.
+This describes the shipped demo build. Every value below stays on the device; nothing is transmitted to the developer or a third party.
 
-| Data                                                      | Current handling                                                  | Production requirement                                                                                              |
-| --------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Name, email, rider category                               | Entered locally or seeded; stored in AsyncStorage                 | Verify identity, purpose, access controls, retention and deletion.                                                  |
-| Home address, stop, school/work destination, time windows | Local persistent route configuration                              | Limit staff access; document routing purpose and retention; review student/guardian requirements.                   |
-| Subscription and seat entitlement                         | Simulated locally and cached                                      | Server authority, tamper-resistant entitlement verification and revocation.                                         |
-| Card/mobile-money input                                   | Demo validation in memory; not saved                              | Hosted/tokenized provider collection; no raw card data in the app/backend.                                          |
-| Receipts and billing activity                             | Simulated persistent records; user can export/share text          | Provider-backed receipts, audited access, financial retention and refund/deletion rules.                            |
-| Boarding/trip history                                     | Local activity and consumption ledger                             | Audited staff access, explicit offline sync status and dispute process.                                             |
-| Driver contact                                            | Seeded phone; device dialer opens when selected                   | Approved operator contact channels and consent.                                                                     |
-| Location                                                  | Simulated coordinates; no live GPS collection                     | Document actual driver/rider location use, consent, retention, permissions and background behavior before enabling. |
-| Keys and credentials                                      | Per-process simulator signing key; no production auth credentials | Server/KMS issuer key, pinned public keys, secure device session storage and revocation.                            |
-| Diagnostics                                               | Local errors/test artifacts                                       | Choose a monitoring processor and redact passenger/payment data before telemetry.                                   |
+| Data                                                      | Handling                                                        |
+| --------------------------------------------------------- | --------------------------------------------------------------- |
+| Name, email, rider category                               | Entered or seeded locally; stored in AsyncStorage on device     |
+| Home address, stop, school/work destination, time windows | Local route configuration in AsyncStorage                       |
+| Subscription, seat, receipts                              | Simulated locally; receipts can be shared by the user           |
+| Payment details                                           | None collected. Checkout uses fixed, read-only test values      |
+| Boarding and trip history                                 | Local activity and consumption ledger                           |
+| Driver contact                                            | Fictional; "Call driver" shows a notice and never dials         |
+| Location                                                  | Simulated coordinates only; no location permission requested    |
+| Keys                                                      | Per-process in-memory signing key for demo QR passes; not saved |
+| Diagnostics                                               | None. No analytics, crash reporting or advertising SDKs         |
 
-A local demo reset is not a production account-deletion workflow. No analytics/advertising tracker, live payment processor or live location service has been configured. Adding any SDK/service requires updating this inventory and the actual store disclosures.
+## Store answers this supports
+
+- **Apple App Privacy:** "Data Not Collected". Apple defines collection as transmitting data off the device, which the app never does. The iOS privacy manifest (`app.config.ts`) declares no tracking and no collected data types.
+- **Google Play Data safety:** no data collected and no data shared. Local profiles are not developer-held accounts, so there is no server-side account to delete; the in-app **Delete local data** action and uninstalling remove everything.
+- **Export compliance:** the app uses signing (Ed25519, for demo QR passes) and the operating system's HTTPS only. That use is typically exempt, which supports `EXPO_IOS_NON_EXEMPT_ENCRYPTION=false`; the account holder must make and own that declaration.
+- **Age rating / audience:** no user-generated content, chat, purchases of real goods, or data collection.
+
+Adding any SDK, network call or permission requires updating this inventory, `PRIVACY.md` and the store disclosures before release.

@@ -1,80 +1,92 @@
-# ShuttlePass launch setup
+# ShuttlePass Demo launch guide
 
-Status as of **23 October 2026 (Africa/Accra): release tooling is configured; public production launch is blocked.** The application is still a single-device simulator. No cloud project, store record, payment account, or backend has been created or published by this task.
+Status as of **27 October 2026**: the app is ready to ship to the stores as **ShuttlePass Demo**, a self-contained demonstration that runs entirely on the device. What remains are things only the account holder can do: create the store and Expo accounts, host the privacy policy, and test on real devices. `npm run launch:check` lists exactly which of those are still open.
 
-## Available now
+## What the release is
 
-- EAS CLI is pinned in the lockfile. `eas.json` defines development, internal preview and store production profiles; Android previews are APKs and production targets are AABs. Production version numbers increment through EAS.
-- Demo and preview identifiers are `app.shuttlepass.mobile.dev` and `app.shuttlepass.mobile.preview`. The provisional production identifier remains `app.shuttlepass.mobile`; its ownership/availability needs verification before registration.
-- `app.config.ts` supplies branded splash configuration, separate names/schemes, HTTPS transport policy, disabled Android backup, and blocked unused recording, camera, overlay, vibration and storage permissions. OTA delivery is disabled; these releases use store binaries.
-- Production config, runtime and EAS preflight reject the simulator. Changing environment flags or filling URLs does not create a production client.
-- CI verifies source, tests, all platform bundles, browser offline workflows and release configuration. A separate security job reports dependency advisories. Manual cloud-build workflow uses operator-owned EAS credentials only; it does not submit or publish store releases.
-- `release/readiness.json` records missing evidence. `release/capabilities.json` accurately describes the implementation. These records are not substitutes for code, external accounts, or device tests.
+- One app, three environments. All of them run the same on-device simulation (`extra.dataMode: "simulation"`); nothing talks to a server.
 
-## Reproducible local commands
+  | Environment | EAS profile   | Name                | Bundle / package                 | Distribution            |
+  | ----------- | ------------- | ------------------- | -------------------------------- | ----------------------- |
+  | demo        | `development` | ShuttlePass Dev     | `app.shuttlepass.mobile.dev`     | internal, simulator APK |
+  | staging     | `preview`     | ShuttlePass Preview | `app.shuttlepass.mobile.preview` | internal                |
+  | production  | `production`  | ShuttlePass Demo    | `app.shuttlepass.mobile`         | App Store / Google Play |
 
-Use Node from `.nvmrc` and npm from `packageManager`.
+- Every build shows the "DEMO • Payments and tracking are simulated" banner. Checkout uses fixed, read-only test details and never asks for real card or mobile money numbers. "Call driver" shows a notice instead of dialing. Profile has a privacy and support section and a **Delete local data** action.
+- No permissions are requested. Unused Android permissions are stripped, Android backup is off, iOS App Transport Security is strict, and the iOS privacy manifest declares no tracking and no collected data.
+- OTA updates are disabled; fixes ship as new store builds. Production build numbers increment remotely through EAS.
+
+## Store review risk: read this first
+
+Apple's App Review Guideline 2.2 says demos and trial versions belong in TestFlight, not the App Store, and 4.2 rejects apps without enough lasting value. A clearly labelled interactive demo of a service that does not exist yet is likely to be rejected on iOS. Google Play is usually more tolerant of a clearly labelled demo, but still enforces its misrepresentation policy.
+
+The safe path is:
+
+1. **TestFlight and Google Play internal or closed testing.** These accept demo builds and need no public review for internal testers. This is what `eas submit` targets by default here (`android.track: internal`, `releaseStatus: draft`).
+2. **Public listing.** Only if you accept the review risk above. Describe the app on the listing as a demo, for example: "An interactive demo of a subscription shuttle service in Accra. Routes, drivers, payments and tracking are simulated; no real rides or payments." Use real screenshots of the demo.
+
+## One-time setup (account holder)
+
+1. **Expo.** Create or choose an Expo account or organization, then link the project: `npx eas-cli@25.3.0 init`. Note the project ID.
+2. **Stores.** Register `app.shuttlepass.mobile` in Apple Developer / App Store Connect and Google Play Console. Let EAS manage signing (`npx eas-cli@25.3.0 credentials`) or upload your own.
+3. **Privacy policy.** Host `PRIVACY.md` (edit it first if anything about your setup differs) at a public HTTPS URL, for example with GitHub Pages or Netlify.
+4. **Store privacy forms.** Fill in Apple App Privacy and Google Play Data safety using `release/data-inventory.md` ("Data Not Collected" / no data collected or shared).
+5. **Export compliance.** Decide your answer. The app only uses signing and the OS's HTTPS, which is typically exempt (`false`); the declaration is yours to make.
+6. **Environment values.** Set these in the EAS `production` and `preview` environments (they are compiled into the app) and as GitHub environment variables for the build workflow:
+
+   | Variable                         | Value                             |
+   | -------------------------------- | --------------------------------- |
+   | `EXPO_APP_OWNER`                 | Expo account or organization slug |
+   | `EXPO_PUBLIC_EAS_PROJECT_ID`     | Project UUID from step 1          |
+   | `EXPO_PUBLIC_PRIVACY_URL`        | Hosted privacy policy URL         |
+   | `EXPO_PUBLIC_SUPPORT_EMAIL`      | A support address you monitor     |
+   | `EXPO_IOS_NON_EXEMPT_ENCRYPTION` | `true` or `false`                 |
+
+   Add `EXPO_TOKEN` as a GitHub environment secret. Never put secrets in `EXPO_PUBLIC_*`.
+
+## Release checklist
+
+1. `npm ci && npm run verify` (lint, typecheck, 47 unit and release tests).
+2. `npm run build:preview` (or the **Build mobile release** workflow with `preview`) and install it on a physical iPhone and Android phone.
+3. Run the device acceptance list below. Record the build IDs, devices, OS versions and results in `release/evidence/device-acceptance.md`.
+4. Mark the evidence in `release/readiness.json`: set each item's `status` to `verified` and `evidence` to the file or link that proves it. Only do this once the item is actually done.
+5. `npm run security:audit` (must be run within 24 hours of the build), then `npm run launch:check` until it reports READY.
+6. `npm run build:production` (or the workflow with `production`). The EAS pre-install hook re-runs the same checks on the build server.
+7. `npx eas-cli@25.3.0 submit --profile production` to send the builds to TestFlight and the Play internal track.
+
+### Device acceptance list
+
+On both platforms, from a fresh install:
+
+- Launch, splash screen, demo banner visible, no permission prompts.
+- Login as Student, Worker and Driver; create a local profile; sign out and back in.
+- Route: change destination and pickup; save; activate the matching plan.
+- Plans: buy each plan with each method; payment fields are read-only test values; receipt opens and shares through the share sheet.
+- Home and Track: "Call driver" shows the simulated-call notice and does not open the dialer; map and timeline advance; leave the app for a few minutes and return.
+- Pass: QR renders and rotates; driver validates it; a second scan of the same pass is rejected.
+- Airplane mode: the pass still displays and boarding still works.
+- Profile: privacy policy link and support email open; **Delete local data** clears everything.
+- Kill and relaunch: state persists. Uninstall and reinstall: state is gone.
+- Accessibility: VoiceOver and TalkBack can reach and name every control; text scales with the system font size.
+
+## Commands
 
 ```sh
 npm ci
 npm run verify
 EXPO_OFFLINE=1 npm run export:all
-EXPO_OFFLINE=1 npm run test:smoke
+EXPO_OFFLINE=1 npm run test:smoke   # browser end-to-end, needs Chromium
 npm run security:audit
-npm run launch:report
-npm run launch:check
+npm run launch:report               # writes release/status.json, always exits 0
+npm run launch:check                # exits nonzero while anything is open
 ```
 
-`launch:report` writes `release/status.json` and succeeds so CI can retain the report. `launch:check` deliberately exits nonzero while blockers exist. `security:audit` writes a lockfile-bound report and exits nonzero for high/critical registry findings. Reports contain public metadata, not credential values. Documentation fetches from Expo were blocked by the execution environment; the installed SDK/CLI schemas and declarations were used to validate configuration.
+## Dependency audit policy
 
-## Operator-owned accounts and environment
+`security:audit` audits the dependencies that ship in the app (`npm audit --omit=dev`) and fails on any high or critical advisory that is not covered by `release/audit-exceptions.json`. Each exception names one advisory, records how it was assessed, and expires within 120 days. A unit test fails once an exception expires, so it has to be reassessed rather than lingering. The full toolchain audit (EAS CLI, ESLint) is included in the report for information.
 
-1. Establish the actual transport operator, operating authorization, service area, support ownership and handling of student/minor data. Register the production bundle/package identifiers in the operator's Apple Developer and Google Play accounts.
-2. Create an operator-owned Expo project. Set `EXPO_APP_OWNER` and `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS environments and the matching GitHub environment variables. `.env.example` documents the public values; never put a payment, database, signing or service-account secret in an `EXPO_PUBLIC_*` variable.
-3. Configure iOS signing, Android signing and store credentials in EAS under those accounts. Configure `EXPO_TOKEN` as a GitHub environment secret. Tokens are exposed only to the explicit cloud-build step. Store service-account keys and signing files are ignored by Git/EAS uploads.
-4. Review the actual release encryption classification before setting `EXPO_IOS_NON_EXEMPT_ENCRYPTION`. No export-compliance answer is invented by this configuration.
-5. Create `preview` and `production` GitHub environments, enter the documented public variables, and protect the release branch and workflow permissions. Workflows are committed locally; activating them requires pushing this repository to its operator-owned remote.
+Current state: patched `node-forge` (1.4.1) and `tar` (7.5.22) are pinned through npm overrides. One exception remains: `zod` 3 inside the Expo CLI (GHSA-mrhx-c7xc-m3w5), which has no patched 3.x release. It runs only on developer and CI machines; the exported iOS, Android and web bundles were checked and contain no zod code. Remove the exception when Expo moves its CLI to a patched zod.
 
-Once the project and signing credentials exist, `npm run build:preview` creates internal review builds. The manual **Build mobile release** workflow offers the same preview target. A preview always carries simulator branding and must not be represented as the live transport service.
+## Turning the demo into a real service later
 
-## Required production implementation
-
-A full public service still needs the following work; it is not implemented by the release configuration:
-
-| Critical path | Required production behavior                                                                                                                                                                                                                                                                                              |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Identity      | Server-enforced rider/driver/admin permissions; verified registration, session expiry/revocation, recovery and account deletion. Rider input cannot grant staff access. Remove demo login, role switching and seed entitlements from the production client. Store credentials in device secure storage, not AsyncStorage. |
-| Booking       | PostgreSQL or equivalent authoritative transactions; unique trip/seat reservations; expiring holds; server prices; idempotency keys scoped to the authenticated customer; no overselling across devices.                                                                                                                  |
-| Billing       | Approved merchant account, hosted/tokenized payment collection, signed webhook verification, unique provider event/reference IDs, amount/currency verification, pending/failed/refunded states and reconciliation. Never activate from a client success screen alone or collect raw card details in the production app.   |
-| Tickets       | Server-held signing key, key rotation/public-key provisioning, authoritative validity and per-trip consumption. Use a challenge/response or identity check to address first-use screenshot impersonation. The current in-process issuer must be excluded from production.                                                 |
-| Offline       | Cache server-signed entitlements, queue uniquely identified boarding events, show pending synchronization, reconcile rejected/duplicate events and define supervisor procedures for a partition. Global offline replay exclusion requires coordinated scanners or an explicit operational constraint.                     |
-| Tracking      | Authorized driver location ingestion; route/stop matching; timestamp/staleness handling; appropriate consent, native permissions and background-mode testing. Replace the simulated map feed with actual service data.                                                                                                    |
-| Operations    | Authenticated health checks, structured redacted logs, error/crash monitoring, alert ownership, backup/restore drills and incident support.                                                                                                                                                                               |
-
-After implementing these paths, route the production entrypoint to the live client, replace the simulator-only guard with tested production policy, update capability records to describe verified code, and attach evidence in readiness records. Do not merely flip readiness markers or remove checks to force a build.
-
-## Security dependency status
-
-Compatible published patches are pinned through npm overrides for Joi, minimatch 5, nanoid 3, AJV 8 and YAML 2. Some Expo/EAS transitive dependencies still have upstream advisories. At setup time, the registry's latest `braces` (3.0.3) and `node-forge` (1.4.0) were affected, with no published patched versions. `npm audit fix --force` suggested obsolete Expo/EAS downgrades, which were rejected.
-
-Use the generated `release/dependency-audit.json` to assess exact advisory ranges and reachability for the locked toolchain. Remediate through supported upstream releases or document an actual security assessment; no risk acceptance is fabricated here. A reachability assessment documents risk but does not automatically waive the strict audit gate. CI security and production readiness remain blocked until high/critical findings are removed or a separately reviewed alternative policy is implemented.
-
-## Store submission package
-
-Before submission, replace simulator screenshots with real device screenshots of the live service and supply the actual operator's:
-
-- App name, service territory, description, subscription conditions, cancellation/refund terms, support URL and privacy-policy URL.
-- Apple privacy disclosures, encryption answers and age-rating responses; Google Data Safety and account-deletion URL. Use `release/data-inventory.md` as the factual starting point, then update it for live SDKs and services.
-- Any student/guardian consent processes and school/operator agreements applicable to the service. Determine applicable requirements with the operator; no legal compliance claim is made by this repository.
-- Store reviewer accounts and a functioning backend review environment. Never give reviewers production admin privileges.
-- Actual App Store Connect app ID and Google service-account credentials in the EAS submit profile/credential store. The provided Android submit target is **internal / draft**, not a public rollout.
-
-After the production checks pass and signed artifacts exist, submission can use the pinned EAS CLI with the configured production submit profile. This task does not run submission commands or bypass the missing identities and backend.
-
-## Acceptance and controlled launch
-
-Run both iOS and Android on real devices through registration/recovery, purchase pending/success/failure/duplicate webhook/refund, concurrent last-seat booking, revoked/expired/replayed QR, airplane-mode boarding and reconciliation, background/foreground tracking, accessibility and account deletion. Record build IDs, OS/device versions, test results and incident contacts in release evidence.
-
-Start with store internal testing/TestFlight, then a limited commuter route and staged store rollout after the operator validates boarding and payment reconciliation. Monitor booking/boarding errors, unresolved payment events, location staleness and crash rates. Pause new purchases if reconciliation or seat consistency fails. Resume only after the operator's verified recovery procedure succeeds.
-
-Keep the last known-good signed build and backend/database migration rollback instructions. Because OTA updates are disabled, client rollback/fixes use the appropriate store release process; backend/schema changes must preserve compatibility with already installed apps.
+The demo is deliberately single-device. A real launch would need a backend (accounts, seat booking, payment webhooks with a Ghana provider such as Paystack, server-held pass signing keys, live driver location) and a client that talks to it. `release/capabilities.json` records what is simulated today. Before any of that ships, update `PRIVACY.md`, `release/data-inventory.md`, the store privacy answers and this guide.

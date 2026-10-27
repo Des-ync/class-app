@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Linking, Pressable, Switch, Text, View } from "react-native";
+import { Alert, Platform, Pressable, Switch, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import {
   Body,
@@ -26,8 +26,13 @@ export const useRider = () => {
   const store = useShuttleStore();
   return { store, rider: store.riders.find((r) => r.id === store.riderId)! };
 };
-export const callDriver = () =>
-  Linking.openURL(`tel:${driver.phone}`).catch(() => {});
+// The driver is fictional, so the demo never dials the seeded number.
+export const callDriver = () => {
+  const title = "Calling is simulated";
+  const message = `In the live service this would call ${driver.name}. The demo does not place phone calls.`;
+  if (Platform.OS === "web") window.alert(`${title}\n\n${message}`);
+  else Alert.alert(title, message);
+};
 export const dateLabel = (value: string) =>
   new Date(value).toLocaleDateString(undefined, {
     timeZone: "Africa/Accra",
@@ -443,7 +448,7 @@ export function Tracker() {
           </View>
           <View style={{ flex: 1 }}>
             <Title>{driver.name}</Title>
-            <Body>★ {driver.rating} · Verified shuttle partner</Body>
+            <Body>★ {driver.rating} · Sample driver profile</Body>
           </View>
         </View>
         <Button

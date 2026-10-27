@@ -61,8 +61,8 @@ export function Plans() {
   const [requestId, setRequestId] = useState(() => operationId("payment"));
   const [method, setMethod] = useState(methods[0]);
   const [account, setAccount] = useState("024 123 4567");
-  const [expiry, setExpiry] = useState("12/30");
-  const [cvv, setCvv] = useState("123");
+  const expiry = "12/35";
+  const cvv = "123";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -227,31 +227,29 @@ export function Plans() {
             setError("");
           }}
         />
+        <Body>
+          Demo checkout uses fixed test details. Real card and mobile money
+          numbers are never requested.
+        </Body>
         <Field
           label={
             method === "Visa / Mastercard"
-              ? "Card number"
-              : "Mobile money number"
+              ? "Demo card number"
+              : "Demo mobile money number"
           }
           value={account}
-          onChangeText={setAccount}
-          keyboardType="phone-pad"
+          editable={false}
         />
         {method === "Visa / Mastercard" && (
           <View style={s.row}>
             <View style={{ flex: 1 }}>
-              <Field
-                label="Expiry (MM/YY)"
-                value={expiry}
-                onChangeText={setExpiry}
-              />
+              <Field label="Expiry (MM/YY)" value={expiry} editable={false} />
             </View>
             <View style={{ flex: 1 }}>
               <Field
                 label="Security code"
                 value={cvv}
-                onChangeText={setCvv}
-                keyboardType="number-pad"
+                editable={false}
                 secureTextEntry
               />
             </View>
@@ -280,8 +278,8 @@ export function Plans() {
           onPress={pay}
         />
         <Body>
-          This is a local payment simulation. No money is charged. Card details
-          are validated in memory and are never saved.
+          This is a local payment simulation. No money is charged and no payment
+          details are collected.
         </Body>
       </Sheet>
       <Sheet

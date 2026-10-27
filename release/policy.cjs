@@ -1,4 +1,3 @@
-const capabilities = require("./capabilities.json");
 const environments = ["demo", "staging", "production"];
 function resolveEnvironment({ appEnvironment, buildProfile } = {}) {
   if (appEnvironment && !environments.includes(appEnvironment))
@@ -20,14 +19,6 @@ function resolveEnvironment({ appEnvironment, buildProfile } = {}) {
       "The production build profile requires the production app environment.",
     );
   return value;
-}
-function assertSimulatorEnvironment(options) {
-  const environment = resolveEnvironment(options);
-  if (environment === "production")
-    throw new Error(
-      "Production launch is blocked: this entrypoint is the local simulator. Connect a server-backed client before building or running a production release.",
-    );
-  return environment;
 }
 function publicHttps(value) {
   try {
@@ -62,23 +53,16 @@ const uuid = (value) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
   );
+const requiredEvidence = [
+  "store_accounts",
+  "privacy_policy",
+  "device_acceptance",
+];
+// Store release of the self-contained demo. Payments, accounts, tracking and
+// ticketing stay simulated on the device, so no backend integration is
+// required; the checks cover what the stores and the operator must supply.
 function productionChecks(env, readiness) {
-  const expected = {
-    client: "server-backed",
-    authentication: "server-enforced",
-    payments: "verified-webhooks",
-    ticketIssuer: "server-held",
-    tracking: "driver-location",
-    synchronization: "server-reconciled",
-    accountDeletion: "server-enforced",
-    observability: "monitored",
-  };
-  const checks = Object.entries(expected).map(([key, value]) => ({
-    id: `capability.${key}`,
-    passed: capabilities[key] === value,
-    detail: `Requires ${value}; current implementation is ${capabilities[key]}.`,
-  }));
-  checks.push(
+  const checks = [
     {
       id: "expo.project",
       passed: uuid(env.EXPO_PUBLIC_EAS_PROJECT_ID),
@@ -89,20 +73,12 @@ function productionChecks(env, readiness) {
       passed: /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(env.EXPO_APP_OWNER || ""),
       detail: "The owning Expo organization/account must be configured.",
     },
-  );
-  for (const key of [
-    "EXPO_PUBLIC_API_URL",
-    "EXPO_PUBLIC_PRIVACY_URL",
-    "EXPO_PUBLIC_TERMS_URL",
-    "EXPO_PUBLIC_DELETION_URL",
-  ])
-    checks.push({
-      id: key,
-      passed: publicHttps(env[key]),
+    {
+      id: "EXPO_PUBLIC_PRIVACY_URL",
+      passed: publicHttps(env.EXPO_PUBLIC_PRIVACY_URL),
       detail:
-        "A real, publicly reachable HTTPS URL must be configured; release validation does not prove endpoint availability.",
-    });
-  checks.push(
+        "Both stores require a publicly reachable HTTPS privacy policy URL; release validation does not prove endpoint availability.",
+    },
     {
       id: "support.email",
       passed:
@@ -120,18 +96,8 @@ function productionChecks(env, readiness) {
       detail:
         "An explicit encryption/export-compliance classification is required.",
     },
-  );
-  const required = [
-    "store_accounts",
-    "legal_and_privacy",
-    "live_backend",
-    "device_acceptance",
-    "billing_acceptance",
-    "security_review",
-    "operations",
-    "dependency_review",
   ];
-  for (const id of required) {
+  for (const id of requiredEvidence) {
     const item = readiness?.checks?.find((item) => item.id === id);
     checks.push({
       id: `evidence.${id}`,
@@ -146,8 +112,8 @@ function productionChecks(env, readiness) {
 }
 module.exports = {
   resolveEnvironment,
-  assertSimulatorEnvironment,
   productionChecks,
+  requiredEvidence,
   publicHttps,
   uuid,
 };

@@ -1,53 +1,24 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "target": "demo-store-release",
   "checks": [
     {
       "id": "store_accounts",
       "status": "blocked",
       "evidence": "",
-      "reason": "Expo project ownership, Apple Developer and Google Play accounts are not configured."
+      "reason": "Expo project ownership, Apple Developer and Google Play accounts are not configured. Register app.shuttlepass.mobile in both stores."
     },
     {
-      "id": "legal_and_privacy",
+      "id": "privacy_policy",
       "status": "blocked",
       "evidence": "",
-      "reason": "Operator identity, support contact, privacy policy, terms, deletion process and child-data handling need operator-specific verification."
-    },
-    {
-      "id": "live_backend",
-      "status": "blocked",
-      "evidence": "",
-      "reason": "A deployed, authenticated backend with transactional booking and payment webhooks has not been implemented or connected."
+      "reason": "Host PRIVACY.md (or an operator-reviewed equivalent) at EXPO_PUBLIC_PRIVACY_URL and complete Apple privacy labels and Google Data safety as described in release/data-inventory.md."
     },
     {
       "id": "device_acceptance",
       "status": "blocked",
       "evidence": "",
-      "reason": "iOS and Android physical-device acceptance tests have not been executed."
-    },
-    {
-      "id": "billing_acceptance",
-      "status": "blocked",
-      "evidence": "",
-      "reason": "Real payment capture, duplicate webhook, refund and reconciliation tests require an approved merchant account."
-    },
-    {
-      "id": "security_review",
-      "status": "blocked",
-      "evidence": "",
-      "reason": "Protected server roles, server-held signing keys, public-key provisioning and multi-scanner replay tests require a live backend."
-    },
-    {
-      "id": "operations",
-      "status": "blocked",
-      "evidence": "",
-      "reason": "Monitoring, restore drills, incident ownership, support procedures and transport operating authorization require the operator and deployed services."
-    },
-    {
-      "id": "dependency_review",
-      "status": "blocked",
-      "evidence": "",
-      "reason": "Upstream Expo/EAS toolchain advisories remain; compatible published fixes are applied, and remaining advisories need remediation or a documented reachability assessment."
+      "reason": "Run the demo acceptance list in LAUNCH.md on a physical iOS and Android device from an EAS preview or TestFlight/internal-testing build, and record build IDs and results."
     }
   ]
 }
