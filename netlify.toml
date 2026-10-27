@@ -2,6 +2,9 @@
 [build]
   publish = "site"
   command = ""
+  # Skip builds when a push leaves the site untouched (exit 0 skips). The first
+  # build, and any comparison git cannot make, still deploys.
+  ignore = 'test "$CACHED_COMMIT_REF" != "$COMMIT_REF" && git diff --quiet "$CACHED_COMMIT_REF" "$COMMIT_REF" -- site/ netlify.toml'
 
 [[headers]]
   for = "/*"
