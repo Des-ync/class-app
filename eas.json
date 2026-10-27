@@ -22,7 +22,10 @@
       "distribution": "internal",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "staging"
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://shuttlepass-demo.netlify.app/privacy/",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "kingema93@gmail.com",
+        "EXPO_IOS_NON_EXEMPT_ENCRYPTION": "false"
       },
       "android": {
         "buildType": "apk"
@@ -37,7 +40,10 @@
       "environment": "production",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "production"
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://shuttlepass-demo.netlify.app/privacy/",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "kingema93@gmail.com",
+        "EXPO_IOS_NON_EXEMPT_ENCRYPTION": "false"
       },
       "android": {
         "buildType": "app-bundle"

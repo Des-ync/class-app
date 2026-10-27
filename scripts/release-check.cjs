@@ -3,23 +3,28 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { productionChecks } = require("../release/policy.cjs");
 const readiness = require("../release/readiness.json");
+const eas = require("../eas.json");
 function auditGate(audit, lockHash, now = Date.now()) {
   const age = now - Date.parse(audit?.generatedAt);
   return {
     id: "dependency.audit",
     passed:
+      audit?.schemaVersion === 2 &&
+      audit?.scope === "shipped" &&
       audit?.lockfileSha256 === lockHash &&
       Number.isFinite(age) &&
       age >= 0 &&
       age <= 86400000 &&
-      audit?.counts?.high === 0 &&
-      audit?.counts?.critical === 0,
-    detail: audit?.counts
-      ? `Registry audit: ${audit.counts.high} high, ${audit.counts.critical} critical; must be clean, less than 24 hours old, and match package-lock.json.`
-      : "A fresh lockfile-bound dependency audit is required.",
+      audit?.blocking?.high === 0 &&
+      audit?.blocking?.critical === 0,
+    detail: audit?.blocking
+      ? `Shipped dependencies: ${audit.blocking.high} high, ${audit.blocking.critical} critical without an active exception; must be zero, less than 24 hours old, and match package-lock.json.`
+      : "A fresh lockfile-bound dependency audit is required (npm run security:audit).",
   };
 }
-function report(env = process.env) {
+// Production builds receive the public values committed in eas.json; an
+// explicitly set environment variable takes precedence, as it does on EAS.
+function report(env = { ...eas.build.production.env, ...process.env }) {
   const checks = productionChecks(env, readiness);
   let audit;
   try {

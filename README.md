@@ -4,7 +4,7 @@ A self-contained Expo / React Native subscription shuttle app for iOS, Android, 
 
 ## Production launch setup
 
-See [LAUNCH.md](LAUNCH.md) for EAS profiles, CI, security checks and the exact remaining launch requirements. Public production is gated because the app still uses simulated services.
+The production build is **ShuttlePass Demo**, a store release of this on-device simulation. See [LAUNCH.md](LAUNCH.md) for the account setup, release checklist, device acceptance list and store review notes, and [PRIVACY.md](PRIVACY.md) for the privacy policy to host.
 
 ## Launch
 
@@ -20,13 +20,13 @@ Scan the QR in Expo Go on iOS or Android, press `i` for an installed iOS Simulat
 
 - Use **Login as Student**, **Login as Worker**, or **Login as Driver**. Login and Profile also offer Commuter / Driver / Admin switching.
 - **Route:** choose an office or school destination, bus stop or home pickup, morning window, and return window. Doorstep pricing adjusts to GHS 950. Save and activate the matching plan.
-- **Plans:** activate Student Standard (GHS 450), Worker Express (GHS 650), or Doorstep VIP (GHS 950). Choose MTN MoMo, Telecel Cash, AirtelTigo Money, or Visa / Mastercard. Demo phone: `0241234567`; demo card: `4242424242424242`, expiry `12/35`, CVV `123`. Receipts are viewable and downloadable/shareable.
-- **Home:** view subscription days, toggle auto-renew preference, change evening return, mark today absent, or call the driver through the device dialer.
+- **Plans:** activate Student Standard (GHS 450), Worker Express (GHS 650), or Doorstep VIP (GHS 950). Choose MTN MoMo, Telecel Cash, AirtelTigo Money, or Visa / Mastercard. Checkout uses fixed, read-only test details (phone `024 123 4567`, card `4242 4242 4242 4242`, expiry `12/35`, CVV `123`) and never asks for real payment details. Receipts are viewable and downloadable/shareable.
+- **Home:** view subscription days, toggle auto-renew preference, change evening return, mark today absent, or tap call driver (the demo shows a notice and never dials).
 - **Track:** switch morning/evening, zoom the simulated map, tap stop markers or timeline rows, and watch the shuttle advance. The map refreshes every two seconds while the app is open; progress uses elapsed time and catches up after backgrounding. A complete simulated route takes 25 minutes. Location and ETA are illustrative.
 - **Pass:** show the generated QR, avatar, validity, route, and seat. Tokens rotate every 30 seconds. Reveal a token for the driver validator if desired.
 - **Driver:** select a manifest route, switch inbound/outbound, start/end a run, notify arriving, mark boarded, skip passengers, or validate a QR token. The simulated scan picker provides current rider QR payloads without requesting camera access. The student demo is on SP 02; the worker demo is on SP 01. Driver events update the commuter dashboard and history immediately.
 - **Admin:** inspect route demand, service runs, subscriptions, and simulated collections.
-- **Profile:** switch demo accounts, inspect activity, sign out, or reset local demo data. New local accounts start without a subscription.
+- **Profile:** switch demo accounts, inspect activity, open the privacy policy or support email, sign out, or delete local data. New local accounts start without a subscription.
 
 ## Data and architecture
 

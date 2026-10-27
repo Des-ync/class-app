@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Text, View } from "react-native";
+import { Linking, Text, View } from "react-native";
 import {
   Body,
   Button,
@@ -18,6 +18,9 @@ import { useShuttleStore } from "../store/useShuttleStore";
 import { isSubscriptionActive } from "../services/subscriptions";
 import { driver, plans, routes } from "../data/mockData";
 import { Role } from "../types";
+// Inlined at build time from the EAS environment; unset in local development.
+const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_URL;
+const supportEmail = process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
 export function Profile() {
   const store = useShuttleStore();
   const rider = store.riders.find((r) => r.id === store.riderId)!;
@@ -125,6 +128,33 @@ export function Profile() {
           routes, and tracking are simulated.
         </Body>
       </Card>
+      <Card>
+        <Title>Privacy & support</Title>
+        <Body>
+          ShuttlePass Demo does not collect, share or upload your data. Your
+          profile, route, receipts and trip history are stored only on this
+          device and are removed when you delete local data or uninstall the
+          app.
+        </Body>
+        {!!privacyUrl && (
+          <Button
+            title="Privacy policy"
+            secondary
+            icon="shield-checkmark-outline"
+            onPress={() => Linking.openURL(privacyUrl).catch(() => {})}
+          />
+        )}
+        {!!supportEmail && (
+          <Button
+            title="Contact support"
+            secondary
+            icon="mail-outline"
+            onPress={() =>
+              Linking.openURL(`mailto:${supportEmail}`).catch(() => {})
+            }
+          />
+        )}
+      </Card>
       <Button
         title="Sign out"
         secondary
@@ -132,22 +162,23 @@ export function Profile() {
         onPress={store.logout}
       />
       <Button
-        title="Reset demo data"
+        title="Delete local data"
         danger
         secondary
         onPress={() => setReset(true)}
       />
       <Sheet
         visible={reset}
-        title="Restore the demo?"
+        title="Delete local data?"
         onClose={() => setReset(false)}
       >
         <Body>
-          This removes local registrations, receipts, route edits, and trip
-          history and restores the seeded accounts.
+          This deletes the registrations, receipts, route edits and trip history
+          stored on this device and restores the sample accounts. ShuttlePass
+          keeps no other copy.
         </Body>
         <Button
-          title="Reset local demo"
+          title="Delete and restore demo"
           danger
           secondary
           onPress={() => {

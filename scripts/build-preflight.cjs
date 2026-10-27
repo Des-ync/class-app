@@ -11,13 +11,9 @@ try {
       throw new Error(
         "Production build blocked. Run npm run launch:report and resolve the launch requirements before creating a store artifact.",
       );
-    // This entrypoint remains a simulator even if readiness records are edited.
-    require("../release/policy.cjs").assertSimulatorEnvironment({
-      appEnvironment: environment,
-    });
   }
   console.log(
-    `Build preflight passed: ${environment} (simulated data, internal distribution only).`,
+    `Build preflight passed: ${environment} (on-device demo data${environment === "production" ? ", store distribution" : ", internal distribution"}).`,
   );
 } catch (error) {
   console.error(error.message);

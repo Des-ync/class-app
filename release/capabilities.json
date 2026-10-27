@@ -1,7 +1,8 @@
 {
+  "release": "demo",
   "client": "local-simulator",
-  "authentication": "demo",
-  "payments": "simulated",
+  "authentication": "local-profile",
+  "payments": "simulated-no-payment-details",
   "ticketIssuer": "in-process",
   "tracking": "simulated",
   "synchronization": "single-device",

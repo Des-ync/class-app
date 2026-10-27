@@ -7,7 +7,7 @@ on:
         options: [preview, production]
         default: preview
         required: true
-        description: Production remains gated until live integrations pass verification.
+        description: Production builds the store release of the on-device demo once launch checks pass.
 permissions:
   contents: read
 concurrency:
@@ -25,12 +25,6 @@ jobs:
       EXPO_PUBLIC_APP_ENV: ${{ inputs.profile == 'production' && 'production' || 'staging' }}
       EXPO_APP_OWNER: ${{ vars.EXPO_APP_OWNER }}
       EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
-      EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
-      EXPO_PUBLIC_PRIVACY_URL: ${{ vars.EXPO_PUBLIC_PRIVACY_URL }}
-      EXPO_PUBLIC_TERMS_URL: ${{ vars.EXPO_PUBLIC_TERMS_URL }}
-      EXPO_PUBLIC_DELETION_URL: ${{ vars.EXPO_PUBLIC_DELETION_URL }}
-      EXPO_PUBLIC_SUPPORT_EMAIL: ${{ vars.EXPO_PUBLIC_SUPPORT_EMAIL }}
-      EXPO_IOS_NON_EXEMPT_ENCRYPTION: ${{ vars.EXPO_IOS_NON_EXEMPT_ENCRYPTION }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
