@@ -15,6 +15,12 @@ const root = require("node:path").resolve(__dirname, "..");
 test("environment selection fails closed and production cannot be downgraded to demo", () => {
   assert.equal(resolveEnvironment(), "demo");
   assert.equal(resolveEnvironment({ buildProfile: "preview" }), "staging");
+  assert.equal(resolveEnvironment({ buildProfile: "beta" }), "production");
+  assert.throws(
+    () =>
+      resolveEnvironment({ buildProfile: "beta", appEnvironment: "staging" }),
+    /beta build profile requires/,
+  );
   assert.equal(
     resolveEnvironment({ appEnvironment: "production" }),
     "production",
@@ -95,6 +101,21 @@ test("demo store release needs store identity and evidence, not a backend", () =
     ).find((c) => c.id === "EXPO_PUBLIC_PRIVACY_URL").passed,
   );
 });
+test("TestFlight beta gate needs the hosted policy but not device or store evidence", () => {
+  const { evidenceByTarget } = require("../release/policy.cjs");
+  assert.deepEqual(evidenceByTarget.testflight, ["privacy_policy"]);
+  const beta = productionChecks(storeEnv, readiness, "testflight");
+  assert.ok(
+    beta.every((c) => c.passed),
+    JSON.stringify(beta),
+  );
+  assert.ok(
+    !productionChecks(storeEnv, { checks: [] }, "testflight").find(
+      (c) => c.id === "evidence.privacy_policy",
+    ).passed,
+  );
+  assert.throws(() => productionChecks(storeEnv, readiness, "nope"), /Unknown/);
+});
 test("production preflight blocks until launch checks pass while preview is buildable", () => {
   for (const environment of ["demo", "staging"]) {
     const result = spawnSync(
@@ -112,21 +133,29 @@ test("production preflight blocks until launch checks pass while preview is buil
     );
     assert.equal(result.status, 0, result.stderr);
   }
-  const blocked = spawnSync(process.execPath, ["scripts/build-preflight.cjs"], {
-    cwd: root,
-    env: {
-      ...process.env,
-      EAS_BUILD_PROFILE: "production",
-      EXPO_PUBLIC_APP_ENV: "production",
-      // A missing project blocks regardless of the committed evidence, so this
-      // still holds once the repository itself is release-ready.
-      EXPO_PUBLIC_EAS_PROJECT_ID: "",
-      EXPO_APP_OWNER: "",
-    },
-    encoding: "utf8",
-  });
-  assert.equal(blocked.status, 1);
-  assert.match(blocked.stderr, /Production build blocked/);
+  for (const [profile, message] of [
+    ["production", /Production build blocked/],
+    ["beta", /TestFlight build blocked/],
+  ]) {
+    const blocked = spawnSync(
+      process.execPath,
+      ["scripts/build-preflight.cjs"],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          EAS_BUILD_PROFILE: profile,
+          EXPO_PUBLIC_APP_ENV: "production",
+          // An invalid project ID overrides app.json and blocks regardless of
+          // the committed evidence, so this holds once the repo is ready.
+          EXPO_PUBLIC_EAS_PROJECT_ID: "not-a-project-id",
+        },
+        encoding: "utf8",
+      },
+    );
+    assert.equal(blocked.status, 1, profile);
+    assert.match(blocked.stderr, message);
+  }
 });
 test("profiles enforce internal previews and store-only production artifacts", () => {
   assert.equal(eas.build.preview.distribution, "internal");
@@ -136,6 +165,10 @@ test("profiles enforce internal previews and store-only production artifacts", (
   assert.equal(eas.build.production.android.buildType, "app-bundle");
   assert.equal(eas.build.production.autoIncrement, true);
   assert.equal(eas.submit.production.android.releaseStatus, "draft");
+  assert.equal(eas.build.beta.extends, "production");
+  assert.equal(eas.build.beta.distribution, "store");
+  assert.deepEqual(eas.build.beta.env, eas.build.production.env);
+  assert.equal(eas.submit.beta.ios.appName, "ShuttlePass Demo");
   assert.equal(app.expo.android.package, app.expo.ios.bundleIdentifier);
 });
 
@@ -199,6 +232,8 @@ test("production config is the demo store identity with no extra permissions", (
   assert.deepEqual(config.android.permissions, []);
   assert.equal(config.extra.dataMode, "simulation");
   assert.equal(config.ios.privacyManifests.NSPrivacyTracking, false);
+  // Portrait-only iPad apps must also require full screen or upload fails.
+  assert.equal(config.ios.supportsTablet, false);
   assert.deepEqual(config.ios.privacyManifests.NSPrivacyCollectedDataTypes, []);
 });
 
@@ -250,21 +285,49 @@ test("audit exceptions cover one advisory, need an assessment and expire", () =>
     activeExceptions(file, now).map((e) => e.package),
     ["zod"],
   );
-  const advisory = (id) => ({ url: `https://github.com/advisories/${id}` });
+  const advisory = (name, id, severity) => ({
+    name,
+    severity,
+    url: `https://github.com/advisories/${id}`,
+  });
   const vulnerabilities = {
-    zod: { severity: "high", via: [advisory("GHSA-mrhx-c7xc-m3w5")] },
-    "@expo/cli": { severity: "high", via: ["zod"] },
+    zod: {
+      severity: "high",
+      via: [advisory("zod", "GHSA-mrhx-c7xc-m3w5", "high")],
+    },
+    deepmerge: {
+      severity: "low",
+      via: [advisory("deepmerge", "GHSA-gcqx-w48m-w2h4", "low")],
+    },
+    "@expo/cli": { severity: "high", via: ["zod", "deepmerge"] },
     expo: { severity: "high", via: ["@expo/cli"] },
-    other: { severity: "high", via: [advisory("GHSA-aaaa-bbbb-cccc")] },
-    mixed: { severity: "high", via: ["zod", "other"] },
+    other: {
+      severity: "high",
+      via: [advisory("other", "GHSA-aaaa-bbbb-cccc", "high")],
+    },
   };
+  // The excepted zod advisory is not re-counted through @expo/cli and expo,
+  // and the uncovered low advisory stays low.
   assert.deepEqual(
     blockingFindings(vulnerabilities, activeExceptions(file, now)).map(
-      (f) => f.name,
+      (f) => `${f.severity} ${f.name}`,
     ),
-    ["other", "mixed"],
+    ["low deepmerge", "high other"],
   );
-  assert.equal(blockingFindings(vulnerabilities, []).length, 5);
+  assert.equal(blockingFindings(vulnerabilities, []).length, 3);
+  // An exception for one package does not cover the same advisory elsewhere.
+  assert.equal(
+    blockingFindings(
+      {
+        x: {
+          severity: "high",
+          via: [advisory("x", "GHSA-mrhx-c7xc-m3w5", "high")],
+        },
+      },
+      activeExceptions(file, now),
+    ).length,
+    1,
+  );
   // The committed exceptions must all be active and well formed.
   const committed = require("../release/audit-exceptions.json");
   assert.equal(

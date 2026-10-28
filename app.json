@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "app.shuttlepass.mobile"
     },
     "android": {
@@ -21,9 +21,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-sharing"
-    ],
+    "plugins": ["expo-sharing"],
     "scheme": "shuttlepass"
   }
 }

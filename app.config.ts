@@ -17,7 +17,14 @@ export default (): ExpoConfig => {
     staging: "ShuttlePass Preview",
     production: "ShuttlePass Demo",
   }[environment];
-  const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+  // `npx eas-cli init` identity: an environment variable wins over app.json.
+  const committed = base.expo as {
+    owner?: string;
+    extra?: { eas?: { projectId?: string } };
+  };
+  const projectId =
+    process.env.EXPO_PUBLIC_EAS_PROJECT_ID || committed.extra?.eas?.projectId;
+  const owner = process.env.EXPO_APP_OWNER || committed.owner;
   if (projectId && !uuid(projectId))
     throw new Error(
       "EXPO_PUBLIC_EAS_PROJECT_ID must be a valid EAS project UUID.",
@@ -43,9 +50,7 @@ export default (): ExpoConfig => {
     ],
     name,
     scheme: `shuttlepass${suffix.replace(".", "-")}`,
-    ...(process.env.EXPO_APP_OWNER
-      ? { owner: process.env.EXPO_APP_OWNER }
-      : {}),
+    ...(owner ? { owner } : {}),
     ios: {
       ...base.expo.ios,
       bundleIdentifier: `${base.expo.ios.bundleIdentifier}${suffix}`,

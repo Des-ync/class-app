@@ -1,10 +1,9 @@
 const { uuid } = require("../release/policy.cjs");
-if (
-  !uuid(process.env.EXPO_PUBLIC_EAS_PROJECT_ID) ||
-  !process.env.EXPO_APP_OWNER
-) {
+const { releaseEnv } = require("./release-check.cjs");
+const env = releaseEnv();
+if (!uuid(env.EXPO_PUBLIC_EAS_PROJECT_ID) || !env.EXPO_APP_OWNER) {
   console.error(
-    "Link an operator-owned EAS project and configure EXPO_PUBLIC_EAS_PROJECT_ID and EXPO_APP_OWNER before cloud builds.",
+    "Link an operator-owned EAS project and set owner and extra.eas.projectId in app.json (or EXPO_APP_OWNER and EXPO_PUBLIC_EAS_PROJECT_ID) before cloud builds.",
   );
   process.exitCode = 1;
 } else
