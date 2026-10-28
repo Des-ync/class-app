@@ -2,6 +2,7 @@
   "expo": {
     "name": "ShuttlePass",
     "slug": "shuttlepass",
+    "owner": "desyncc",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
