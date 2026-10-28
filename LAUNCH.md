@@ -40,15 +40,27 @@ The static site in `site/` is deployed to the Netlify project `shuttlepass-demo`
 
 ## One-time setup (account holder)
 
-1. **Expo.** Create or choose an Expo account or organization, then link the project: `npx eas-cli@25.3.0 login` and `npx eas-cli@25.3.0 init`. Note the project ID and owner slug.
-2. **GitHub.** In the repository settings, create `preview` and `production` environments. Add the variables `EXPO_APP_OWNER` and `EXPO_PUBLIC_EAS_PROJECT_ID`, and the secret `EXPO_TOKEN` (create one at expo.dev under Access tokens). Set the same two variables in the EAS `preview` and `production` environments. Never put secrets in `EXPO_PUBLIC_*`.
+1. **Expo.** Link the project as in step 1 of the TestFlight section; `owner` and `extra.eas.projectId` in `app.json` are what every build uses.
+2. **GitHub.** In the repository settings, create `preview`, `beta` and `production` environments. Add the secret `EXPO_TOKEN` (create one at expo.dev under Access tokens). The project identity comes from `app.json`, so no project variables are needed. Never put secrets in `EXPO_PUBLIC_*`.
 3. **Stores.** Register `app.shuttlepass.mobile` in App Store Connect (Apple Developer Program, USD 99/year) and Google Play Console (USD 25 one-time). Let EAS manage signing (`npx eas-cli@25.3.0 credentials`) or upload your own. New personal Google Play accounts may have to run a closed test with a minimum number of testers for about two weeks before production access; check the current rule in Play Console.
 4. **Store listing.** Use the URLs above. Fill in Apple App Privacy and Google Play Data safety from `release/data-inventory.md` ("Data Not Collected" / no data collected or shared). Answer export compliance with "No" for non-exempt encryption, matching `EXPO_IOS_NON_EXEMPT_ENCRYPTION=false`.
 5. **Evidence.** Set `store_accounts` in `release/readiness.json` to `verified` with the App Store Connect app ID and Play package link once both records exist.
 
+## TestFlight beta (iOS)
+
+The `beta` profile builds the production identity (`app.shuttlepass.mobile`, "ShuttlePass Demo") for the App Store and submits it to TestFlight. Its gate (`npm run launch:check:beta`) needs the Expo project, the hosted privacy policy, the support email, the export answer and a fresh dependency audit, but not device or store evidence: TestFlight is where iOS device acceptance happens, and EAS creates the App Store Connect record on the first submission. You need an Apple Developer Program membership (USD 99/year) on the Apple ID you sign in with. No Mac is required.
+
+1. `npx eas-cli@25.3.0 login` with your Expo account, then `npx eas-cli@25.3.0 init`. Because the config is `app.config.ts`, `init` prints the project ID instead of saving it: add `"owner": "<your Expo username>"` and `"extra": { "eas": { "projectId": "<id>" } }` inside `expo` in `app.json` and commit.
+2. `npm ci`, then `npm run build:testflight`. It refreshes the dependency audit, runs the beta gate, and starts `eas build --platform ios --profile beta --auto-submit`. Answer the prompts: sign in to your Apple ID, let EAS generate the distribution certificate and provisioning profile, and let it create the App Store Connect app (name "ShuttlePass Demo", SKU `shuttlepass-demo`) and an App Store Connect API key for future submissions.
+3. The cloud build takes about 15 to 30 minutes, then EAS uploads it. Apple processes the upload for another 5 to 30 minutes and emails you when it is ready.
+4. In App Store Connect > TestFlight, paste the text from `release/testflight.md`, add yourself to an internal testing group, and install from the TestFlight app on your iPhone.
+5. Run the device acceptance list below on that build and record the results in `release/evidence/device-acceptance.md`.
+
+Later builds can run from GitHub: create a `beta` environment with the `EXPO_TOKEN` secret and run the **Build mobile release** workflow with `beta`. It reuses the credentials and API key the first run stored in EAS.
+
 ## Release checklist
 
-1. `npm ci && npm run verify` (lint, typecheck, 48 unit and release tests).
+1. `npm ci && npm run verify` (lint, typecheck, 49 unit and release tests).
 2. `npm run build:preview` (or the **Build mobile release** workflow with `preview`) and install it on a physical iPhone and Android phone.
 3. Run the device acceptance list below. Record the build IDs, devices, OS versions and results in `release/evidence/device-acceptance.md`.
 4. Mark the evidence in `release/readiness.json`: set each item's `status` to `verified` and `evidence` to the file or link that proves it. Only do this once the item is actually done.

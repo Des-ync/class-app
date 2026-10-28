@@ -4,19 +4,22 @@ function resolveEnvironment({ appEnvironment, buildProfile } = {}) {
     throw new Error("EXPO_PUBLIC_APP_ENV must be demo, staging or production.");
   if (
     buildProfile &&
-    !["development", "preview", "production"].includes(buildProfile)
+    !["development", "preview", "beta", "production"].includes(buildProfile)
   )
     throw new Error("Unknown EAS build profile.");
   const value =
     appEnvironment ||
-    (buildProfile === "production"
+    (buildProfile === "production" || buildProfile === "beta"
       ? "production"
       : buildProfile === "preview"
         ? "staging"
         : "demo");
-  if (buildProfile === "production" && value !== "production")
+  if (
+    (buildProfile === "production" || buildProfile === "beta") &&
+    value !== "production"
+  )
     throw new Error(
-      "The production build profile requires the production app environment.",
+      `The ${buildProfile} build profile requires the production app environment.`,
     );
   return value;
 }
@@ -58,10 +61,17 @@ const requiredEvidence = [
   "privacy_policy",
   "device_acceptance",
 ];
+// A TestFlight beta is how device acceptance happens on iOS, and EAS creates
+// the App Store Connect record during the first submission, so the beta gate
+// needs only the hosted privacy policy as evidence.
+const evidenceByTarget = {
+  production: requiredEvidence,
+  testflight: ["privacy_policy"],
+};
 // Store release of the self-contained demo. Payments, accounts, tracking and
 // ticketing stay simulated on the device, so no backend integration is
 // required; the checks cover what the stores and the operator must supply.
-function productionChecks(env, readiness) {
+function productionChecks(env, readiness, target = "production") {
   const checks = [
     {
       id: "expo.project",
@@ -97,7 +107,9 @@ function productionChecks(env, readiness) {
         "An explicit encryption/export-compliance classification is required.",
     },
   ];
-  for (const id of requiredEvidence) {
+  const evidence = evidenceByTarget[target];
+  if (!evidence) throw new Error(`Unknown release target: ${target}`);
+  for (const id of evidence) {
     const item = readiness?.checks?.find((item) => item.id === id);
     checks.push({
       id: `evidence.${id}`,
@@ -114,6 +126,7 @@ module.exports = {
   resolveEnvironment,
   productionChecks,
   requiredEvidence,
+  evidenceByTarget,
   publicHttps,
   uuid,
 };

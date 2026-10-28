@@ -4,10 +4,10 @@ on:
     inputs:
       profile:
         type: choice
-        options: [preview, production]
+        options: [preview, beta, production]
         default: preview
         required: true
-        description: Production builds the store release of the on-device demo once launch checks pass.
+        description: preview is internal; beta builds iOS and submits it to TestFlight; production builds the store release once launch checks pass.
 permissions:
   contents: read
 concurrency:
@@ -22,7 +22,7 @@ jobs:
       CI: "true"
       EXPO_NO_TELEMETRY: "1"
       EAS_BUILD_PROFILE: ${{ inputs.profile }}
-      EXPO_PUBLIC_APP_ENV: ${{ inputs.profile == 'production' && 'production' || 'staging' }}
+      EXPO_PUBLIC_APP_ENV: ${{ inputs.profile == 'preview' && 'staging' || 'production' }}
       EXPO_APP_OWNER: ${{ vars.EXPO_APP_OWNER }}
       EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
     steps:
@@ -43,13 +43,19 @@ jobs:
           EAS_BUILD_PROFILE: preview
           EXPO_PUBLIC_APP_ENV: staging
       - name: Audit production build dependencies
-        if: inputs.profile == 'production'
+        if: inputs.profile != 'preview'
         run: npm run security:audit
       - run: node scripts/check-eas-project.cjs
       - run: node scripts/build-preflight.cjs
       - name: Build signed artifacts
         run: |
           test -n "$EXPO_TOKEN" || { echo 'EXPO_TOKEN is not configured in this GitHub environment.'; exit 1; }
-          npx eas-cli@25.3.0 build --platform all --profile "$EAS_BUILD_PROFILE" --non-interactive --wait
+          if [ "$EAS_BUILD_PROFILE" = beta ]; then
+            # Needs the iOS credentials and App Store Connect API key that the
+            # first local `npm run build:testflight` stores in EAS.
+            npx eas-cli@25.3.0 build --platform ios --profile beta --auto-submit --non-interactive --wait
+          else
+            npx eas-cli@25.3.0 build --platform all --profile "$EAS_BUILD_PROFILE" --non-interactive --wait
+          fi
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

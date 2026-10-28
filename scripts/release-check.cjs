@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const { productionChecks } = require("../release/policy.cjs");
 const readiness = require("../release/readiness.json");
 const eas = require("../eas.json");
+const app = require("../app.json");
 function auditGate(audit, lockHash, now = Date.now()) {
   const age = now - Date.parse(audit?.generatedAt);
   return {
@@ -22,10 +23,25 @@ function auditGate(audit, lockHash, now = Date.now()) {
       : "A fresh lockfile-bound dependency audit is required (npm run security:audit).",
   };
 }
-// Production builds receive the public values committed in eas.json; an
-// explicitly set environment variable takes precedence, as it does on EAS.
-function report(env = { ...eas.build.production.env, ...process.env }) {
-  const checks = productionChecks(env, readiness);
+// Store builds receive the public values committed in eas.json and the project
+// identity committed in app.json; an explicitly set environment variable takes
+// precedence, as it does on EAS.
+function releaseEnv(profile = "production") {
+  const set = (value) => (value ? value : undefined);
+  return {
+    EXPO_APP_OWNER: set(app.expo.owner),
+    EXPO_PUBLIC_EAS_PROJECT_ID: set(app.expo.extra?.eas?.projectId),
+    ...eas.build[profile].env,
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([, value]) => value !== ""),
+    ),
+  };
+}
+function report(
+  target = "production",
+  env = releaseEnv(target === "testflight" ? "beta" : "production"),
+) {
+  const checks = productionChecks(env, readiness, target);
   let audit;
   try {
     audit = JSON.parse(
@@ -46,13 +62,16 @@ function report(env = { ...eas.build.production.env, ...process.env }) {
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    target: "production",
+    target,
     ready: checks.every((c) => c.passed),
     checks,
   };
 }
 if (require.main === module) {
-  const result = report();
+  const target = process.argv.includes("--testflight")
+    ? "testflight"
+    : "production";
+  const result = report(target);
   if (process.argv.includes("--report")) {
     fs.mkdirSync(path.resolve("release"), { recursive: true });
     fs.writeFileSync(
@@ -61,7 +80,7 @@ if (require.main === module) {
     );
   }
   console.log(
-    `Production launch: ${result.ready ? "READY" : "BLOCKED"} (${result.checks.filter((c) => c.passed).length}/${result.checks.length} checks passed)`,
+    `${target === "testflight" ? "TestFlight beta" : "Production launch"}: ${result.ready ? "READY" : "BLOCKED"} (${result.checks.filter((c) => c.passed).length}/${result.checks.length} checks passed)`,
   );
   for (const check of result.checks)
     console.log(
@@ -69,4 +88,4 @@ if (require.main === module) {
     );
   if (!result.ready && !process.argv.includes("--report")) process.exitCode = 1;
 }
-module.exports = { report, auditGate };
+module.exports = { report, auditGate, releaseEnv };

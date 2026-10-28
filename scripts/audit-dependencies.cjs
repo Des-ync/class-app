@@ -32,25 +32,27 @@ function activeExceptions(file, now = Date.now()) {
     );
   });
 }
-// A finding is excepted when every advisory it carries, directly or through
-// the packages it depends on, is covered by an active exception.
+// npm lists each advisory as an object on the package it affects; packages
+// that only depend on it name that package instead. Blocking findings are the
+// distinct advisories, at their own severity, that no active exception covers,
+// so an excepted high advisory deep in a chain is not counted again through
+// every package above it.
 function blockingFindings(vulnerabilities, exceptions) {
-  const isCovered = (name, seen = new Set()) => {
-    const v = vulnerabilities[name];
-    // Unknown packages and dependency cycles fail closed.
-    if (!v || seen.has(name)) return false;
-    const path = new Set(seen).add(name);
-    return v.via.every((via) =>
-      typeof via === "string"
-        ? isCovered(via, path)
-        : exceptions.some(
-            (e) => e.package === name && via.url?.endsWith(e.advisory),
-          ),
-    );
-  };
-  return Object.entries(vulnerabilities)
-    .filter(([name]) => !isCovered(name))
-    .map(([name, v]) => ({ name, severity: v.severity }));
+  const advisories = new Map();
+  for (const [name, v] of Object.entries(vulnerabilities))
+    for (const via of v.via)
+      if (typeof via === "object")
+        advisories.set(`${via.name || name} ${via.url}`, {
+          name: via.name || name,
+          url: via.url,
+          severity: via.severity,
+        });
+  return [...advisories.values()].filter(
+    (a) =>
+      !exceptions.some(
+        (e) => e.package === a.name && a.url?.endsWith(e.advisory),
+      ),
+  );
 }
 function summarize(audit) {
   return Object.entries(audit.vulnerabilities || {}).map(([name, v]) => ({
@@ -114,7 +116,7 @@ function main() {
   for (const f of blocking.filter((f) =>
     ["high", "critical"].includes(f.severity),
   ))
-    console.log(`BLOCKING ${f.severity} ${f.name}`);
+    console.log(`BLOCKING ${f.severity} ${f.name} ${f.url}`);
   console.log(
     "Details: release/dependency-audit.json. Exceptions: release/audit-exceptions.json.",
   );
