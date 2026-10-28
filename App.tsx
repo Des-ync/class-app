@@ -5,7 +5,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { C } from "./components/ui";
+import { C, GlassBackground, Type } from "./components/ui";
 import { useShuttleStore } from "./store/useShuttleStore";
 import { Login } from "./screens/Login";
 import { Home, Tracker, Pass } from "./screens/Commuter";
@@ -14,15 +14,17 @@ import { RouteConfig } from "./screens/RouteConfig";
 import { Driver } from "./screens/Driver";
 import { Profile, Admin } from "./screens/Profile";
 const Tab = createBottomTabNavigator();
-const icons: Record<string, React.ComponentProps<typeof Ionicons>["name"]> = {
-  Home: "grid-outline",
-  Track: "navigate-outline",
-  Route: "map-outline",
-  Pass: "qr-code-outline",
-  Plans: "wallet-outline",
-  Profile: "person-outline",
-  Shift: "bus-outline",
-  Overview: "stats-chart-outline",
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
+// Filled symbol when selected, outline otherwise.
+const icons: Record<string, [filled: IconName, outline: IconName]> = {
+  Home: ["grid", "grid-outline"],
+  Track: ["navigate", "navigate-outline"],
+  Route: ["map", "map-outline"],
+  Pass: ["qr-code", "qr-code-outline"],
+  Plans: ["wallet", "wallet-outline"],
+  Profile: ["person", "person-outline"],
+  Shift: ["bus", "bus-outline"],
+  Overview: ["stats-chart", "stats-chart-outline"],
 };
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -43,17 +45,22 @@ class ErrorBoundary extends React.Component<
           backgroundColor: C.bg,
         }}
       >
-        <Text style={{ fontSize: 24, fontWeight: "800" }}>
+        <Text style={{ fontSize: 28, fontWeight: "700", color: C.navy }}>
           Let’s get back on route.
         </Text>
-        <Text>
+        <Text style={{ fontSize: Type.body, color: C.muted }}>
           The app encountered an unexpected error. Reopen it to restore your
           saved session.
         </Text>
         <Text
           accessibilityRole="button"
           onPress={() => this.setState({ error: false })}
-          style={{ color: C.darkGreen, fontWeight: "700" }}
+          style={{
+            color: C.darkGreen,
+            fontSize: Type.body,
+            fontWeight: "600",
+            paddingVertical: 12,
+          }}
         >
           Try again
         </Text>
@@ -82,29 +89,31 @@ function Root() {
           backgroundColor: C.bg,
         }}
       >
-        <ActivityIndicator color={C.green} />
-        <Text style={{ marginTop: 14, color: C.muted }}>
+        <ActivityIndicator color={C.green as string} />
+        <Text style={{ marginTop: 14, color: C.muted, fontSize: Type.callout }}>
           Getting your shuttle ready…
         </Text>
       </View>
     );
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <Text
         accessibilityRole="text"
         style={{
           textAlign: "center",
-          fontSize: 10,
+          fontSize: Type.caption,
           padding: 6,
-          backgroundColor: "#FEF3C7",
-          color: "#92400E",
+          backgroundColor: C.amberTint,
+          color: C.amber,
         }}
       >
         DEMO • Payments and tracking are simulated
       </Text>
       {storageError && (
-        <Text style={{ padding: 12, color: C.red }}>{storageError}</Text>
+        <Text style={{ padding: 12, color: C.red, fontSize: Type.callout }}>
+          {storageError}
+        </Text>
       )}
       {!loggedIn ? (
         <Login />
@@ -115,8 +124,8 @@ function Root() {
             ...DefaultTheme,
             colors: {
               ...DefaultTheme.colors,
-              primary: C.darkGreen,
-              background: C.bg,
+              primary: C.darkGreen as string,
+              background: C.bg as string,
             },
           }}
         >
@@ -125,12 +134,23 @@ function Root() {
             screenOptions={({ route }) => ({
               headerShown: false,
               tabBarAccessibilityLabel: route.name,
-              tabBarActiveTintColor: C.darkGreen,
-              tabBarInactiveTintColor: "#94A3B8",
-              tabBarStyle: { borderTopColor: C.line, backgroundColor: "white" },
-              tabBarLabelStyle: { fontSize: 9, fontWeight: "600" },
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name={icons[route.name]} color={color} size={size} />
+              tabBarActiveTintColor: C.darkGreen as string,
+              tabBarInactiveTintColor: C.muted as string,
+              // Floating glass bar over content: the functional layer.
+              tabBarBackground: () => <GlassBackground />,
+              tabBarStyle: {
+                position: "absolute",
+                borderTopWidth: 0,
+                backgroundColor: "transparent",
+                elevation: 0,
+              },
+              tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons
+                  name={icons[route.name][focused ? 0 : 1]}
+                  color={color as string}
+                  size={size}
+                />
               ),
             })}
           >

@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.shuttlepass.mobile"
@@ -21,7 +21,16 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-sharing"],
-    "scheme": "shuttlepass"
+    "plugins": [
+      "expo-sharing"
+    ],
+    "scheme": "shuttlepass",
+    "extra": {
+      "appEnvironment": "demo",
+      "dataMode": "simulation",
+      "eas": {
+        "projectId": "7a5a2774-292f-4e01-9610-35bdd9ead449"
+      }
+    }
   }
 }

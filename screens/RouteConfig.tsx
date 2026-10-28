@@ -53,7 +53,7 @@ export function RouteConfig({ navigation }: { navigation: any }) {
           <Card
             style={
               r.id === booking.routeId
-                ? { borderColor: C.green, backgroundColor: "#F0FDF7" }
+                ? { borderColor: C.green, backgroundColor: C.tint }
                 : undefined
             }
           >
@@ -61,9 +61,9 @@ export function RouteConfig({ navigation }: { navigation: any }) {
               <View style={{ flex: 1, gap: 6 }}>
                 <Text
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     color: C.darkGreen,
-                    fontWeight: "800",
+                    fontWeight: "700",
                   }}
                 >
                   {r.code}
@@ -163,17 +163,17 @@ export function RouteConfig({ navigation }: { navigation: any }) {
         />
       </Card>
       <Card dark>
-        <Text style={{ color: "#CBD5E1", fontSize: 12 }}>
+        <Text style={{ color: C.onHeroMuted, fontSize: 12 }}>
           YOUR RECOMMENDED MONTHLY PLAN
         </Text>
-        <Text style={{ fontSize: 22, color: "white", fontWeight: "800" }}>
+        <Text style={{ fontSize: 22, color: C.onHero, fontWeight: "700" }}>
           {booking.pickup === "home"
             ? "Doorstep VIP"
             : rider.type === "Student"
               ? "Student Standard"
               : "Worker Express"}
         </Text>
-        <Text style={{ fontSize: 32, color: "white", fontWeight: "800" }}>
+        <Text style={{ fontSize: 32, color: C.onHero, fontWeight: "700" }}>
           GHS {price}
           <Text style={{ fontSize: 13 }}> / month</Text>
         </Text>

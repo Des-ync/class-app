@@ -95,7 +95,7 @@ export function Plans() {
       title="One month. Sorted."
       subtitle="Simple plans for the places you go."
     >
-      <Card style={{ backgroundColor: "#E7F7EF", borderColor: "#B7E8D1" }}>
+      <Card style={{ backgroundColor: C.tint }}>
         <View style={s.row}>
           <Icon name="sparkles-outline" color={C.darkGreen} />
           <View style={{ flex: 1 }}>
@@ -185,7 +185,7 @@ export function Plans() {
                   {dateLabel(r.date)} · {r.method}
                 </Body>
               </View>
-              <Text style={{ fontWeight: "800", color: C.darkGreen }}>
+              <Text style={{ fontWeight: "700", color: C.darkGreen }}>
                 GHS {r.amount}
               </Text>
             </View>

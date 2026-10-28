@@ -106,7 +106,7 @@ export function Profile() {
                   {a.title}
                 </Text>
                 <Body>{a.detail}</Body>
-                <Text style={{ color: "#94A3B8", fontSize: 10 }}>
+                <Text style={{ color: C.onHeroMuted, fontSize: 12 }}>
                   {new Date(a.date).toLocaleString(undefined, {
                     timeZone: "Africa/Accra",
                   })}
@@ -202,10 +202,12 @@ export function Admin() {
       subtitle="Operations overview · Local demo"
     >
       <Card dark>
-        <Text style={{ color: "#A7F3D0", fontSize: 11, letterSpacing: 1.4 }}>
+        <Text
+          style={{ color: C.onHeroAccent, fontSize: 12, letterSpacing: 0.5 }}
+        >
           SHUTTLEPASS OPERATIONS
         </Text>
-        <Text style={{ fontSize: 32, color: "white", fontWeight: "800" }}>
+        <Text style={{ fontSize: 32, color: C.onHero, fontWeight: "700" }}>
           {active.length} active commuters
         </Text>
         <Body light>

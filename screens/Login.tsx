@@ -57,14 +57,14 @@ export function Login() {
               transform: [{ rotate: "-8deg" }],
             }}
           >
-            <Icon name="bus" size={50} color="white" />
+            <Icon name="bus" size={50} color={C.onHero} />
           </View>
         </View>
         <Text
           style={{
             fontSize: 32,
-            color: "white",
-            fontWeight: "800",
+            color: C.onHero,
+            fontWeight: "700",
             letterSpacing: -1,
           }}
         >
@@ -76,7 +76,7 @@ export function Login() {
         </Body>
         <View style={s.wrap}>
           {["Live tracking", "Safe rides", "Monthly passes"].map((t) => (
-            <Text key={t} style={{ color: "#A7F3D0", fontSize: 11 }}>
+            <Text key={t} style={{ color: C.onHeroAccent, fontSize: 12 }}>
               ✓ {t}
             </Text>
           ))}

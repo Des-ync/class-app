@@ -142,7 +142,7 @@ export function RouteMap({
           padding: 8,
         }}
       >
-        <Text style={{ fontSize: 10, color: C.darkGreen, fontWeight: "700" }}>
+        <Text style={{ fontSize: 12, color: C.darkGreen, fontWeight: "700" }}>
           ● {selected || "SIMULATED LIVE LOCATION"}
         </Text>
       </View>

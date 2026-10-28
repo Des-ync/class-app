@@ -60,7 +60,7 @@ export function Driver() {
       />
       <Card dark>
         <View style={s.row}>
-          <Text style={{ color: "white", fontSize: 22, fontWeight: "800" }}>
+          <Text style={{ color: C.onHero, fontSize: 22, fontWeight: "700" }}>
             {store.run === "morning" ? "Morning run" : "Evening run"}
           </Text>
           <Badge
@@ -83,11 +83,17 @@ export function Driver() {
             ],
           ].map(([n, label]) => (
             <View key={label} style={{ gap: 6 }}>
-              <Text style={{ fontSize: 30, color: "white", fontWeight: "800" }}>
+              <Text
+                style={{ fontSize: 30, color: C.onHero, fontWeight: "700" }}
+              >
                 {n}
               </Text>
               <Text
-                style={{ fontSize: 10, color: "#94A3B8", letterSpacing: 1 }}
+                style={{
+                  fontSize: 12,
+                  color: C.onHeroMuted,
+                  letterSpacing: 0.5,
+                }}
               >
                 {label}
               </Text>
@@ -156,9 +162,9 @@ export function Driver() {
                 <Text
                   style={{
                     color: C.darkGreen,
-                    fontSize: 10,
-                    fontWeight: "800",
-                    letterSpacing: 1,
+                    fontSize: 12,
+                    fontWeight: "700",
+                    letterSpacing: 0.5,
                   }}
                 >
                   STOP {String(index + 1).padStart(2, "0")}
@@ -200,7 +206,7 @@ export function Driver() {
               >
                 <View style={s.row}>
                   <View style={[s.avatar, { width: 38, height: 38 }]}>
-                    <Text style={{ fontWeight: "800", color: C.darkGreen }}>
+                    <Text style={{ fontWeight: "700", color: C.darkGreen }}>
                       {r.name
                         .split(" ")
                         .map((n) => n[0])

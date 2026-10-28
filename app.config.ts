@@ -35,7 +35,7 @@ export default (): ExpoConfig => {
   return {
     ...base.expo,
     orientation: "portrait",
-    userInterfaceStyle: "light",
+    userInterfaceStyle: "automatic",
     plugins: [
       ...base.expo.plugins,
       [

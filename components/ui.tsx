@@ -1,7 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  ColorValue,
+  DynamicColorIOS,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,18 +14,89 @@ import {
   TextInputProps,
   View,
 } from "react-native";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
+import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+// Semantic colors, named by role. On iOS each resolves to a light or dark
+// value at render time; other platforms use the light value.
+const dyn = (light: string, dark: string): ColorValue =>
+  Platform.OS === "ios" ? DynamicColorIOS({ light, dark }) : light;
+
 export const C = {
-  navy: "#0F172A",
-  green: "#10B981",
-  darkGreen: "#047857",
-  muted: "#64748B",
-  line: "#E2E8F0",
-  bg: "#F5F7FA",
+  // Surfaces
+  bg: dyn("#F2F2F7", "#000000"), // grouped background
+  card: dyn("#FFFFFF", "#1C1C1E"), // grouped content
+  fill: dyn("#EEF0F3", "#2C2C2E"), // secondary controls
+  line: dyn("#D9DCE1", "#38383A"), // separator
+  hero: dyn("#0F172A", "#14231F"), // the one dark surface per screen
+  // Content
+  navy: dyn("#111827", "#F5F5F7"), // primary label
+  muted: dyn("#5C6370", "#9AA0AB"), // secondary label, 5.4:1 on bg
+  onHero: "#FFFFFF",
+  onHeroMuted: "#C5CBD6", // 10.9:1 on hero
+  onHeroAccent: "#A7F3D0",
+  // Accent: the single brand color, reserved for the primary action,
+  // selection, and status. Background carries it, not the label.
+  green: dyn("#10B981", "#34D399"), // fills, map, switch track
+  darkGreen: dyn("#047857", "#34D399"), // accent text and primary fill
+  onAccent: dyn("#FFFFFF", "#04201A"), // label on the accent fill
+  tint: dyn("#D1FAE5", "#12352B"), // accent-tinted background
+  // Status
+  red: dyn("#B91C1C", "#FF6B6B"),
+  redTint: dyn("#FEE2E2", "#3A1B1B"),
   white: "#FFFFFF",
-  red: "#DC2626",
+  amber: dyn("#92400E", "#FCD34D"),
+  amberTint: dyn("#FEF3C7", "#3A2E0F"),
+  violet: dyn("#6D28D9", "#C4B5FD"),
+  violetTint: dyn("#EDE9FE", "#2A2146"),
 };
+
+export const Type = {
+  largeTitle: 34,
+  title: 20,
+  body: 17,
+  callout: 15,
+  footnote: 13,
+  caption: 12,
+};
+
+export function useReduceTransparency() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceTransparencyEnabled?.()
+      .then((v) => live && setOn(v))
+      .catch(() => undefined);
+    const sub = AccessibilityInfo.addEventListener(
+      "reduceTransparencyChanged",
+      setOn,
+    );
+    return () => {
+      live = false;
+      sub.remove();
+    };
+  }, []);
+  return on;
+}
+
+// Liquid Glass approximation for the functional layer only (tab bar).
+export function GlassBackground() {
+  const opaque = useReduceTransparency();
+  if (opaque || Platform.OS === "android")
+    return (
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: C.card }]} />
+    );
+  return (
+    <BlurView
+      intensity={70}
+      tint="systemChromeMaterial"
+      style={StyleSheet.absoluteFill}
+    />
+  );
+}
+
 export function Icon({
   name,
   size = 22,
@@ -29,10 +104,11 @@ export function Icon({
 }: {
   name: React.ComponentProps<typeof Ionicons>["name"];
   size?: number;
-  color?: string;
+  color?: ColorValue;
 }) {
-  return <Ionicons name={name} size={size} color={color} />;
+  return <Ionicons name={name} size={size} color={color as string} />;
 }
+
 export function Button({
   title,
   onPress,
@@ -50,41 +126,34 @@ export function Button({
   loading?: boolean;
   icon?: React.ComponentProps<typeof Ionicons>["name"];
 }) {
+  const fg = danger ? C.red : secondary ? C.darkGreen : C.onAccent;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       onPress={onPress}
       style={({ pressed }) => [
         s.button,
         secondary && s.secondary,
-        danger && { backgroundColor: "#FEF2F2" },
+        danger && { backgroundColor: C.redTint },
         (disabled || loading) && { opacity: 0.5 },
-        pressed && { opacity: 0.75 },
+        pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={secondary ? C.navy : C.white} />
+        <ActivityIndicator color={fg} />
       ) : (
         <>
-          {icon && (
-            <Icon name={icon} size={18} color={secondary ? C.navy : C.white} />
-          )}
-          <Text
-            style={[
-              s.buttonText,
-              secondary && { color: C.navy },
-              danger && { color: C.red },
-            ]}
-          >
-            {title}
-          </Text>
+          {icon && <Icon name={icon} size={20} color={fg} />}
+          <Text style={[s.buttonText, { color: fg }]}>{title}</Text>
         </>
       )}
     </Pressable>
   );
 }
+
 export function Card({
   children,
   dark = false,
@@ -95,17 +164,12 @@ export function Card({
   style?: any;
 }) {
   return (
-    <View
-      style={[
-        s.card,
-        dark && { backgroundColor: C.navy, borderColor: C.navy },
-        style,
-      ]}
-    >
+    <View style={[s.card, dark && { backgroundColor: C.hero }, style]}>
       {children}
     </View>
   );
 }
+
 export function Badge({
   text,
   green = false,
@@ -114,11 +178,11 @@ export function Badge({
   green?: boolean;
 }) {
   return (
-    <View style={[s.badge, green && { backgroundColor: "#D1FAE5" }]}>
+    <View style={[s.badge, green && { backgroundColor: C.tint }]}>
       <Text
         style={{
-          fontSize: 11,
-          fontWeight: "700",
+          fontSize: Type.caption,
+          fontWeight: "600",
           color: green ? C.darkGreen : C.muted,
         }}
       >
@@ -127,12 +191,15 @@ export function Badge({
     </View>
   );
 }
+
 export function Label({ children }: { children: React.ReactNode }) {
   return <Text style={s.label}>{children}</Text>;
 }
+
 export function Title({ children }: { children: React.ReactNode }) {
   return <Text style={s.title}>{children}</Text>;
 }
+
 export function Body({
   children,
   light = false,
@@ -141,17 +208,24 @@ export function Body({
   light?: boolean;
 }) {
   return (
-    <Text style={[s.body, light && { color: "#CBD5E1" }]}>{children}</Text>
+    <Text style={[s.body, light && { color: C.onHeroMuted }]}>{children}</Text>
   );
 }
+
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 6 }}>
       <Label>{label}</Label>
-      <TextInput placeholderTextColor="#94A3B8" style={s.input} {...props} />
+      <TextInput
+        accessibilityLabel={label}
+        placeholderTextColor={C.muted as string}
+        style={s.input}
+        {...props}
+      />
     </View>
   );
 }
+
 export function Chips<T extends string>({
   options,
   value,
@@ -174,8 +248,8 @@ export function Chips<T extends string>({
           <Text
             style={{
               fontWeight: "600",
-              fontSize: 12,
-              color: option === value ? C.white : C.muted,
+              fontSize: Type.callout,
+              color: option === value ? C.onAccent : C.navy,
             }}
           >
             {option}
@@ -185,6 +259,9 @@ export function Chips<T extends string>({
     </View>
   );
 }
+
+// Large-title page. Content scrolls under the floating tab bar, so the
+// bottom inset comes from the tab bar's measured height when there is one.
 export function Page({
   children,
   title,
@@ -196,26 +273,29 @@ export function Page({
   subtitle?: string;
   action?: React.ReactNode;
 }) {
+  const tabBarHeight = React.useContext(BottomTabBarHeightContext) ?? 0;
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView
-        contentContainerStyle={s.page}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={[s.page, { paddingBottom: tabBarHeight + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={s.row}>
-          <View style={{ flex: 1, gap: 5 }}>
-            <Text style={s.eyebrow}>SHUTTLEPASS</Text>
-            <Text style={s.pageTitle}>{title}</Text>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text accessibilityRole="header" style={s.pageTitle}>
+              {title}
+            </Text>
             {subtitle && <Body>{subtitle}</Body>}
           </View>
           {action}
         </View>
         {children}
-        <Text style={s.footer}>A better way to get there.</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
 export function Sheet({
   visible,
   title,
@@ -236,15 +316,18 @@ export function Sheet({
     >
       <View style={s.overlay}>
         <SafeAreaView style={s.sheet}>
+          <View accessible={false} style={s.grabber} />
           <View style={s.row}>
-            <Title>{title}</Title>
+            <Text accessibilityRole="header" style={[s.title, { flex: 1 }]}>
+              {title}
+            </Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Close dialog"
               onPress={onClose}
-              hitSlop={15}
+              style={s.closeButton}
             >
-              <Icon name="close" />
+              <Icon name="close" size={20} color={C.muted} />
             </Pressable>
           </View>
           <ScrollView
@@ -258,36 +341,30 @@ export function Sheet({
     </Modal>
   );
 }
+
 export const s = StyleSheet.create({
   page: {
-    padding: 22,
+    padding: 20,
     gap: 20,
     maxWidth: 720,
     width: "100%",
     alignSelf: "center",
-    paddingBottom: 32,
-  },
-  eyebrow: {
-    fontSize: 10,
-    letterSpacing: 2.8,
-    fontWeight: "800",
-    color: C.darkGreen,
   },
   pageTitle: {
-    fontSize: 30,
-    fontWeight: "800",
-    letterSpacing: -1,
+    fontSize: Type.largeTitle,
+    fontWeight: "700",
+    letterSpacing: 0.4,
     color: C.navy,
   },
-  title: { fontSize: 18, fontWeight: "700", color: C.navy },
-  body: { fontSize: 13, lineHeight: 20, color: C.muted },
-  label: { fontSize: 12, color: C.muted, fontWeight: "600" },
+  title: { fontSize: Type.title, fontWeight: "600", color: C.navy },
+  body: { fontSize: Type.callout, lineHeight: 22, color: C.muted },
+  label: { fontSize: Type.footnote, color: C.muted, fontWeight: "500" },
   card: {
     padding: 20,
-    borderRadius: 22,
-    backgroundColor: C.white,
-    borderWidth: 1,
-    borderColor: C.line,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "transparent",
+    backgroundColor: C.card,
     gap: 16,
   },
   row: {
@@ -299,50 +376,44 @@ export const s = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   button: {
     backgroundColor: C.darkGreen,
-    borderRadius: 13,
-    paddingVertical: 15,
-    paddingHorizontal: 18,
+    borderRadius: 999,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 8,
-    minHeight: 48,
+    minHeight: 50,
   },
-  buttonText: { color: C.white, fontSize: 13, fontWeight: "700" },
-  secondary: { backgroundColor: "#EDF2F7" },
+  buttonText: { fontSize: Type.body, fontWeight: "600" },
+  secondary: { backgroundColor: C.fill },
   badge: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: "#F1F5F9",
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: C.fill,
     alignSelf: "flex-start",
   },
   input: {
-    borderWidth: 1,
-    borderColor: C.line,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 14,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: Type.body,
     color: C.navy,
-    backgroundColor: C.white,
+    backgroundColor: C.fill,
     minHeight: 48,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: "#EDF2F7",
-    borderRadius: 12,
+    paddingHorizontal: 18,
+    justifyContent: "center",
+    minHeight: 44,
+    backgroundColor: C.fill,
+    borderRadius: 999,
   },
-  chipOn: { backgroundColor: C.navy },
-  footer: {
-    textAlign: "center",
-    fontSize: 11,
-    color: "#94A3B8",
-    paddingTop: 8,
-  },
+  chipOn: { backgroundColor: C.darkGreen },
   overlay: {
     flex: 1,
-    backgroundColor: "#0F172A99",
+    backgroundColor: "#00000066",
     justifyContent: "flex-end",
     alignItems: "center",
   },
@@ -351,20 +422,36 @@ export const s = StyleSheet.create({
     width: "100%",
     maxWidth: 720,
     backgroundColor: C.bg,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    padding: 24,
-    gap: 24,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    gap: 16,
   },
-  big: { fontSize: 34, fontWeight: "800", color: C.navy, letterSpacing: -1 },
-  divider: { height: 1, backgroundColor: C.line },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: "#D1FAE5",
+  grabber: {
+    alignSelf: "center",
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.line,
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: C.fill,
     alignItems: "center",
     justifyContent: "center",
   },
-  error: { color: C.red, fontSize: 13, lineHeight: 20 },
+  big: { fontSize: 34, fontWeight: "700", color: C.navy, letterSpacing: 0.4 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: C.line },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: C.tint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  error: { color: C.red, fontSize: Type.callout, lineHeight: 22 },
 });

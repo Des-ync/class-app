@@ -64,7 +64,7 @@ export function Home({ navigation }: { navigation: any }) {
       })}
       action={
         <View style={s.avatar}>
-          <Text style={{ fontWeight: "800", color: C.darkGreen }}>
+          <Text style={{ fontWeight: "700", color: C.darkGreen }}>
             {rider.name
               .split(" ")
               .map((n) => n[0])
@@ -77,26 +77,29 @@ export function Home({ navigation }: { navigation: any }) {
         <View style={s.row}>
           <Text
             style={{
-              color: "#A7F3D0",
-              fontSize: 10,
-              fontWeight: "800",
-              letterSpacing: 1.5,
+              color: C.onHeroAccent,
+              fontSize: 12,
+              fontWeight: "700",
+              letterSpacing: 0.5,
             }}
           >
             YOUR MONTHLY FREEDOM
           </Text>
           <Badge text={active ? "● ACTIVE" : "NO ACTIVE PASS"} green={active} />
         </View>
-        <Text style={{ color: "white", fontSize: 25, fontWeight: "800" }}>
+        <Text style={{ color: C.onHero, fontSize: 25, fontWeight: "700" }}>
           {plan?.name || "Make your commute yours"}
         </Text>
         <View style={s.row}>
           <View>
-            <Text style={{ color: "white", fontSize: 38, fontWeight: "800" }}>
+            <Text style={{ color: C.onHero, fontSize: 38, fontWeight: "700" }}>
               {days}
-              <Text style={{ fontSize: 13, color: "#CBD5E1" }}> days left</Text>
+              <Text style={{ fontSize: 13, color: C.onHeroMuted }}>
+                {" "}
+                days left
+              </Text>
             </Text>
-            <Text style={{ color: "#94A3B8", fontSize: 11 }}>
+            <Text style={{ color: C.onHeroMuted, fontSize: 12 }}>
               {sub
                 ? `Valid until ${dateLabel(sub.end)}`
                 : "Choose a plan to reserve your seat"}
@@ -107,16 +110,19 @@ export function Home({ navigation }: { navigation: any }) {
             accessibilityLabel="Open boarding pass"
             onPress={() => navigation.navigate("Pass")}
             style={{
-              backgroundColor: "#FFFFFF14",
-              padding: 16,
-              borderRadius: 16,
+              backgroundColor: "#FFFFFF1F",
+              width: 56,
+              height: 56,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 28,
             }}
           >
-            <Icon name="qr-code-outline" color="white" size={32} />
+            <Icon name="qr-code-outline" color={C.onHero} size={32} />
           </Pressable>
         </View>
         <View style={s.row}>
-          <Text style={{ color: "#CBD5E1", fontSize: 12 }}>
+          <Text style={{ color: C.onHeroMuted, fontSize: 12 }}>
             Auto-renew preference · simulated billing
           </Text>
           <Switch
@@ -124,7 +130,7 @@ export function Home({ navigation }: { navigation: any }) {
             value={sub?.autoRenew || false}
             onValueChange={store.toggleRenew}
             disabled={!sub}
-            trackColor={{ true: C.green }}
+            trackColor={{ true: C.green as string }}
           />
         </View>
         <Button
@@ -155,13 +161,13 @@ export function Home({ navigation }: { navigation: any }) {
                     s.avatar,
                     {
                       backgroundColor:
-                        run === "morning" ? "#FEF3C7" : "#EDE9FE",
+                        run === "morning" ? C.amberTint : C.violetTint,
                     },
                   ]}
                 >
                   <Icon
                     name={run === "morning" ? "sunny-outline" : "moon-outline"}
-                    color={run === "morning" ? "#B45309" : "#7C3AED"}
+                    color={run === "morning" ? C.amber : C.violet}
                   />
                 </View>
                 <View style={{ gap: 5 }}>
@@ -376,9 +382,7 @@ export function Tracker() {
             {occupancy}/{driver.capacity} aboard
           </Text>
         </View>
-        <View
-          style={{ height: 6, borderRadius: 4, backgroundColor: "#E2E8F0" }}
-        >
+        <View style={{ height: 6, borderRadius: 4, backgroundColor: C.fill }}>
           <View
             style={{
               height: 6,
@@ -407,7 +411,7 @@ export function Tracker() {
                   backgroundColor:
                     trip.progress >= stopProgress(route, store.run, stop.id)
                       ? C.green
-                      : "white",
+                      : C.card,
                   borderWidth: 2,
                   borderColor: C.green,
                 }}
@@ -444,7 +448,7 @@ export function Tracker() {
       <Card>
         <View style={s.row}>
           <View style={s.avatar}>
-            <Text style={{ fontWeight: "800", color: C.darkGreen }}>KM</Text>
+            <Text style={{ fontWeight: "700", color: C.darkGreen }}>KM</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Title>{driver.name}</Title>
@@ -495,7 +499,7 @@ export function Pass({ navigation }: { navigation: any }) {
               style={[s.avatar, { width: 76, height: 76, borderRadius: 38 }]}
             >
               <Text
-                style={{ fontSize: 25, color: C.darkGreen, fontWeight: "800" }}
+                style={{ fontSize: 25, color: C.darkGreen, fontWeight: "700" }}
               >
                 {rider.name
                   .split(" ")
@@ -510,20 +514,19 @@ export function Pass({ navigation }: { navigation: any }) {
             <View
               style={{
                 padding: 16,
-                borderRadius: 18,
-                borderWidth: 1,
-                borderColor: C.line,
+                borderRadius: 24,
+                backgroundColor: "#FFFFFF",
               }}
             >
               <QRCode
                 value={passToken(rider, now, context)}
                 size={210}
-                color={C.navy}
-                backgroundColor="white"
+                color="#000000"
+                backgroundColor="#FFFFFF"
               />
             </View>
             <Text
-              style={{ fontSize: 11, color: C.darkGreen, fontWeight: "700" }}
+              style={{ fontSize: 12, color: C.darkGreen, fontWeight: "700" }}
             >
               SIGNED TOKEN REFRESHES IN {30 - (Math.floor(now / 1000) % 30)}s
             </Text>
